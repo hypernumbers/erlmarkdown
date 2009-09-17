@@ -1,5 +1,69 @@
+Release Notes
+=============
+
+Version 1.0 Production Release Candidate
+
+This version comes with 226 Unit Tests and is being released for pre-production testing.
+
+It also has 1 System Test - this document :)
+
+Errata
+======
+
+1  This is a valid markdown for references
+------------------------------------------
+
+    [id]: http://sub.dom.tld:1234/some/path\\t\\n(Title)
+
+The title wrap to a new line is not supported in this release.
+
+2 Character Escaping
+--------------------
+
+I'm not entirely clear how character escaping should work for:
+
+    \   backslash
+    \`   backtick
+    *   asterisk
+    _   underscore
+    {}  curly braces
+    []  square brackets
+    ()  parentheses
+    #   hash mark
+    +   plus sign
+    -   minus sign (hyphen)
+    .   dot
+    !   exclamation mark
+
+I escape them only in context.
+
+3 Anti-spam mailto's
+------------------------------
+
+The official release obfuscated e-mail addresses, this don't :(
+
+What It Is
+==========
+
 This is an Erlang implementation of Markdown.
 
 See http://daringfireball.net/projects/markdown/ for details
 
+License
+=======
+
 The license is the same as the original Markdown
+
+
+Musical Colophon
+----------------
+
+'My Song' when I wrote this was:
+<http://open.spotify.com/track/6mqdunuFFSODHKcpDTFvAj>
+
+
+'Generic Song' to play when you find a bug in my code:
+<http://open.spotify.com/track/5YLa8jWik5OqgBoSix3NUp>
+
+'Generic Song' about how I feel about myself when you find a bug:
+<http://open.spotify.com/track/2RbJj7D5pRff82NtDDSwah>
