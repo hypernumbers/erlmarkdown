@@ -1,7 +1,20 @@
 Release Notes
 =============
 
-Version 1.0 Production Release Candidate
+Version 1.0 RC1.1 First Point Release
+-------------------------------
+
+Various bug fixes:
+* supports short inline URL references of the form 'some text [id] some more'
+* fixes bugs with lines containing markdown only like '#', '>', '=' and '-'
+* fixes a bug where a terminating '\n\n' would mean each line came back reversed
+* fixes various 'atx header' bugs
+* fixes bugs where lines start with an emphasis or strong marker (thanks to Tom McNulty)
+
+Unit tests bumped up to 255.
+
+Version 1.0 RC1 Production Release Candidate
+--------------------------------------------
 
 This version comes with 226 Unit Tests and is being released for pre-production testing.
 
@@ -38,7 +51,7 @@ I'm not entirely clear how character escaping should work for:
 I escape them only in context.
 
 3 Anti-spam mailto's
-------------------------------
+--------------------
 
 The official release obfuscated e-mail addresses, this don't :(
 
@@ -60,7 +73,6 @@ Musical Colophon
 
 'My Song' when I wrote this was:
 <http://open.spotify.com/track/6mqdunuFFSODHKcpDTFvAj>
-
 
 'Generic Song' to play when you find a bug in my code:
 <http://open.spotify.com/track/5YLa8jWik5OqgBoSix3NUp>

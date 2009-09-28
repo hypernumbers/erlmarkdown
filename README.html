@@ -1,4 +1,9 @@
-<h1>Release Notes</h1><br /><p>Version 1.0 Production Release Candidate</p><br /><p>This version comes with 226 Unit Tests and is being released for pre-production testing.</p><br /><p>It also has 1 System Test - this document :)</p><br /><h1>Errata</h1><br /><h2>1  This is a valid markdown for references</h2><br /><pre><code>[id]: http://sub.dom.tld:1234/some/path\\t\\n(Title)
+<h1>Release Notes</h1><br /><h2>Version 1.0 RC1.1 First Point Release</h2><br /><p>Various bug fixes:</p><ul><li>supports short inline URL references of the form 'some text [id] some more'
+</li><li>fixes bugs with lines containing markdown only like '#', '&gt;', '=' and '-'
+</li><li>fixes a bug where a terminating '\n\n' would mean each line came back reversed
+</li><li>fixes various 'atx header' bugs
+</li><li>fixes bugs where lines start with an emphasis or strong marker (thanks to Tom McNulty)
+</li></ul><br /><p>Unit tests bumped up to 255.</p><br /><h2>Version 1.0 RC1 Production Release Candidate</h2><br /><p>This version comes with 226 Unit Tests and is being released for pre-production testing.</p><br /><p>It also has 1 System Test - this document :)</p><br /><h1>Errata</h1><br /><h2>1  This is a valid markdown for references</h2><br /><pre><code>[id]: http://sub.dom.tld:1234/some/path\\t\\n(Title)
 </code></pre><br /><p>The title wrap to a new line is not supported in this release.</p><br /><h2>2 Character Escaping</h2><br /><p>I'm not entirely clear how character escaping should work for:</p><br /><pre><code>\   backslash
 </code></pre><pre><code>`   backtick
 </code></pre><pre><code>*   asterisk
@@ -12,6 +17,6 @@
 </code></pre><pre><code>.   dot
 </code></pre><pre><code>!   exclamation mark
 </code></pre><br /><p>I escape them only in context.</p><br /><h2>3 Anti-spam mailto's</h2><br /><p>The official release obfuscated e-mail addresses, this don't :(</p><br /><h1>What It Is</h1><br /><p>This is an Erlang implementation of Markdown.</p><br /><p>See http://daringfireball.net/projects/markdown/ for details</p><br /><h1>License</h1><br /><p>The license is the same as the original Markdown</p><br /><br /><h2>Musical Colophon</h2><br /><p>'My Song' when I wrote this was:
-<a href="http://open.spotify.com/track/6mqdunuFFSODHKcpDTFvAj">http://open.spotify.com/track/6mqdunuFFSODHKcpDTFvAj</a></p><br /><br /><p>'Generic Song' to play when you find a bug in my code:
+<a href="http://open.spotify.com/track/6mqdunuFFSODHKcpDTFvAj">http://open.spotify.com/track/6mqdunuFFSODHKcpDTFvAj</a></p><br /><p>'Generic Song' to play when you find a bug in my code:
 <a href="http://open.spotify.com/track/5YLa8jWik5OqgBoSix3NUp">http://open.spotify.com/track/5YLa8jWik5OqgBoSix3NUp</a></p><br /><p>'Generic Song' about how I feel about myself when you find a bug:
 <a href="http://open.spotify.com/track/2RbJj7D5pRff82NtDDSwah">http://open.spotify.com/track/2RbJj7D5pRff82NtDDSwah</a></p>

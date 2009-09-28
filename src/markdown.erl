@@ -41,8 +41,11 @@
 %%%   - horizontal rules
 %%% the parser then does its magic interpolating the references as appropriate
 conv(String) -> Lex = lex(String),
+                % io:format("Lex is ~p~n", [Lex]),
                 UntypedLines = make_lines(Lex),
+                % io:format("UntypedLinex are ~p~n", [UntypedLines]),
                 TypedLines = type_lines(UntypedLines),
+                % io:format("TypedLines are ~p~n", [TypedLines]),
                 parse(TypedLines).
 
 conv_file(FileIn, FileOut) ->
@@ -78,8 +81,9 @@ write(File, Text) ->
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-parse({Refs,  TypedLines}) ->
-    p1(TypedLines, Refs, [], []).
+%% SPECIAL HYPERNUMBERS PARSE - dont markdown a single normal line
+%% parse({[], [{normal, P} | []]}) -> make_str(P, []);
+parse({Refs,  TypedLines})      -> p1(TypedLines, Refs, [], []).
 
 %% goes through the lines
 %% If it hits a 'start' like 'blockquote' it throws a HTML fragment into the mix
@@ -103,15 +107,26 @@ p1([{tag, Tag} | T], R, Stack, Acc) ->
 p1([{blank, _} | T], R, [], Acc) ->
     p1(T, R, [], ["<br />" | Acc]); 
 p1([{blank, _} | T], R, [Close | Open], Acc) ->
-    p1(T, R, Open, flatten(["<br />", Close | Acc]));
+    p1(T, R, Open, ["<br />", Close | Acc]);
 
 %% two consecutive normal lines should be concatenated..
 p1([{normal, P1}, {normal, P2} | T], R, Stack, Acc) ->
     p1([{normal, flatten([P1 | P2])} | T], R, Stack, Acc);
 
-%% setext h1 is a look behind
+%% setext h1 is a look behind and it overrides blockquote and code...
 p1([{normal, P}, {setext_h1, _} | T], R, Stack, Acc) ->
     p1(T, R, Stack, ["<h1>" ++ make_str(snip(P), R) ++ "</h1>" | Acc]); 
+p1([{blockquote, P}, {setext_h1, _} | T], R, Stack, Acc) ->
+    p1(T, R, Stack, ["<h1>" ++ make_str(snip(P), R) ++ "</h1>" | Acc]); 
+p1([{{codeblock, P}, _}, {setext_h1, _} | T], R, Stack, Acc) ->
+    p1(T, R, Stack, ["<h1>" ++ make_str(snip(P), R) ++ "</h1>" | Acc]); 
+p1([{{codeblock, P}, _}, {h2_or_hr, _} | T], R, Stack, Acc) ->
+    p1(T, R, Stack, ["<h2>" ++ make_str(snip(P), R) ++ "</h2>" | Acc]); 
+
+%% but a setext with no lookbehind is just rendered as a normal line,
+%% so change its type and rethrow it
+p1([{setext_h1, P} | T], R, Stack, Acc) ->
+    p1([{normal, P} | T], R, Stack, Acc); 
 
 %% setext h2 might be a look behind
 p1([{normal, P}, {h2_or_hr, _} | T], R, Stack, Acc) ->
@@ -184,13 +199,13 @@ parse_list(_Type, [], _R, A) ->
 %% if the '<li>' is followed by a blank then wrap it, throw the blank
 %% back onto the tail
 parse_list(Type, [{{Type, P}, _}, {blank, _} = B | T], R, A) ->
-     parse_list(Type, [B | T], R, ["<li><p>" ++ make_esc_str(P, R)
-                                      ++ "</p></li>" | A]);
+     parse_list(Type, [B | T], R, ["<li>" ++ make_esc_str(P, R)
+                                      ++ "</li>" | A]);
 %% this is the partner of the previous line...
 parse_list(Type, [{blank, _}, {{Type, P}, _} | T], R, A) ->
     {Rest, NewP} = grab(T, R, []),
-    parse_list(Type, Rest, R, ["<li><p>" ++ make_esc_str(P, R)
-                                  ++ NewP ++"</p></li>" | A]);
+    parse_list(Type, Rest, R, ["<li>" ++ make_esc_str(P, R)
+                                  ++ NewP ++"</li>" | A]);
 %% this is a plain old '<li>'
 parse_list(Type, [{{Type, P}, _} | T], R, A) ->
     {Rest, NewP} = grab(T, R, []),
@@ -444,7 +459,13 @@ type_underscore2(List) -> case trim_right(List) of % be permissive of trailing s
 type_star(List) -> Trim = trim_right(List),
                    case type_star1(Trim) of % be permssive of trailing spaces
                        hr    -> {hr, trim_right(Trim)};
-                       maybe -> {type_star2(List), List}
+                       maybe -> Type = type_star2(List),
+                                % if it is a normal line we prepend it with a special
+                                % non-space filling white space character
+                                case Type of
+                                    normal -> {normal, [{{ws, none}, none} | List]};
+                                    _      -> {Type, List}
+                                end
                    end.
 
 type_star1([])                    -> hr;
@@ -484,29 +505,68 @@ type_ol1([{{punc, fullstop}, _},
           {{ws, _}, _} | T], _Acc) -> {ol, T};
 type_ol1(_List, _Acc)              -> normal.
 
+%% You need to understand what this function is trying to d...
+%% '### blah' is fine
+%% '### blah ###' is reduced to '### blah' because trailing #'s are
+%% just for show but...
+%% '##' is like appling '#' to '#' <-- applying 1 less styling to a single #
+%% and '###' is like appling '##' to '#' etc, etc
+%% but after you hit 6#'s you just get this for a single hash
+%% ie '#############' is like applying '######' to a single '#'
+%% but/and '######## blah' is like apply '######' to '## blah'
 %% strip trailing #'s as they are decorative only...
-type_atx(List) -> Stripped = reverse(strip_atx(reverse(List))),
-                  {type_atx1(Stripped), List}.
+type_atx(List) ->
+    {Sz, R} = get_atx_size(List),
+    A = [{{md, atx}, "#"}],
+    Type =
+        case is_all_hashes(R) of
+            true  ->
+                if
+                    Sz == 1 ->
+                        normal; 
+                    ((Sz > 1) andalso (Sz < 6)) ->
+                        Ns = integer_to_list(Sz - 1),
+                        Hn = list_to_atom("h" ++ Ns),
+                        {Hn, A};
+                    ((Sz == 6) andalso (R == [])) ->
+                        {h5, A};
+                    ((Sz == 6) andalso (R == [{{lf, lf}, "\n"}])) ->
+                        {h5, A};
+                    ((Sz == 6) andalso (R == [{{lf, crlf}, "\r\n"}])) ->
+                        {h5, A};
+                    ((Sz == 6) andalso (R =/= [])) ->
+                        {h6, A}
+                end;
+            false ->
+                Ns = integer_to_list(Sz),
+                Hn = list_to_atom("h" ++ Ns),
+                {Hn, strip_atx(R)}
+        end,
+    {Type, List}.
 
-strip_atx([{{lf, _}, _}, {{md, atx}, _} | T]) -> strip_atx(T);
-strip_atx([{{md, atx}, _} | T])               -> strip_atx(T);
-strip_atx(List)                               -> List.
+is_all_hashes([])                   -> true;
+is_all_hashes([{{md, atx}, _} | T]) -> is_all_hashes(T);
+is_all_hashes([{{lf, _}, _} | []])  -> true;
+is_all_hashes(_List)                -> false.
+              
+get_atx_size(List) -> g_atx_size1(List, 0).
 
-%% this is final clause terminal
-%% can't get a <h3> style header bigger than 6...
-type_atx1(List) -> t_atx1(List, 0).
+% this function also strips whitespace to the left...
+g_atx_size1([{{md, atx}, _} = A | T], N) when N == 6 -> {6, [A | T]};
+g_atx_size1([{{md, atx}, _} | T], N)                 -> g_atx_size1(T, N + 1);
+g_atx_size1([{{ws, _}, _} | T], N)                   -> g_atx_size1(T, N);
+g_atx_size1(List, N)                                 -> {N, List}.
 
-t_atx1([{{md, atx}, _} | T], 6) -> t_atx1(T, 6);
-t_atx1([{{md, atx}, _} | T], N) -> t_atx1(T, N + 1);
-t_atx1([{{ws, _}, _} | T], N)   -> t_atx1(T, N);
-t_atx1(List, N)                 -> Nh = "h" ++ integer_to_list(N),
-                                      Header = list_to_atom(Nh),
-                                      {Header, List}.
-                 
+strip_atx(List) -> reverse(s_atx1(reverse(List))).
+
+s_atx1([{{lf, _}, _}, {{md, atx}, _} | T]) -> s_atx1(T);
+s_atx1([{{md, atx}, _} | T])               -> s_atx1(T);
+s_atx1(List)                               -> List.
+
 type_setext_h1(List) -> type_s_h1_1(List, []).
 
 %% terminates on running out or new line
-type_s_h1_1([{{lf, _}, _} | []], Acc)     -> {setext_h1, reverse(Acc)};
+type_s_h1_1([{{lf, _}, _} = L | []], Acc) -> {setext_h1, reverse([L | Acc])};
 type_s_h1_1([], Acc)                      -> {setext_h1, reverse(Acc)};
 type_s_h1_1([[] | T], Acc)                -> type_s_h1_1(T, Acc);
 type_s_h1_1([{{md, eq}, _} = H | T], Acc) -> type_s_h1_1(T, [H | Acc]);
@@ -708,6 +768,10 @@ l1([$( | T], A1, A2)       -> l1(T, [], [{bra, "("}, l2(A1) | A2]);
 l1([$) | T], A1, A2)       -> l1(T, [], [{ket, ")"}, l2(A1) | A2]);
 l1([$[ | T], A1, A2)       -> l1(T, [], [{{inline, open}, "["}, l2(A1) | A2]);
 l1([$] | T], A1, A2)       -> l1(T, [], [{{inline, close}, "]"}, l2(A1) | A2]);
+%% note there is a special 'whitespace' {{ws, none}, ""} which is used to generate non-space
+%% filling whitespace for cases like '*bob* is great' which needs a non-space filling
+%% whitespace prepended to trigger emphasis so it renders as "<em>bob</em> is great...
+%% that 'character' doesn't exist so isn't in the lexer but appears in the parser
 l1([?SPACE | T], A1, A2)   -> l1(T, [], [{{ws, sp}, " "}, l2(A1) | A2]);
 l1([?TAB | T], A1, A2)     -> l1(T, [], [{{ws, tab}, "\t"}, l2(A1) | A2]);
 l1([?CR, ?LF | T], A1, A2) -> l1(T, [], [{{lf, crlf}, [?CR , ?LF]}, l2(A1) | A2]);
@@ -814,6 +878,9 @@ m_str1([{{punc, bang}, B}, {{inline, open}, O} | T], R, A) ->
                                      m_str1(Rest, R, [Tag | A]);
         {Rest, Tag}               -> m_str1(Rest, R, [Tag, O, B | A])
     end;
+%% escape inline open's...
+m_str1([{{punc, bslash}, _}, {{inline, open}, O} | T], R, A) ->
+    m_str1(T, R, [O | A]);
 m_str1([{{inline, open}, O} | T], R, A) ->
     case get_inline(T, R, []) of
         {Rest, {Url, Title, Acc}} -> Tag = [{tags, "<a href=\""}, Url 
@@ -852,6 +919,16 @@ get_inline([{{inline, close}, _}, {{inline, open}, _} | T], R, A) ->
 %% so does this one - just delete the space and rethrow it
 get_inline([{{inline, close}, _} = C , {{ws, _}, _}, {{inline, open}, _} = O | T], R, A) ->
     get_inline([C, O | T], R, A);
+%% this is the markdown extension clause that takes an id in square brackets without
+%% any additional stuff as a valid id marker
+get_inline([{{inline, close}, _} | T], R, A) ->
+    Id = make_plain_str(reverse(A)),
+    Text = "",
+    case lists:keyfind(Id, 1, R) of
+                       false              -> {T, flatten([Id , $]])};
+                       {Id, {Url, Title}} -> Tag = {Url, Title, Text},
+                                             {T, Tag}
+          end;
 get_inline([H | T], R, A) ->
     get_inline(T, R, [H | A]).
 
@@ -869,14 +946,19 @@ htmlchars([{tags, Tag} | T], Acc)  -> htmlchars(T, [Tag | Acc]);
 %% line ends are pushed to a space..
 htmlchars([?LF | T], Acc)          -> htmlchars(T, ["\n" | Acc]);
 htmlchars([?CR, ?LF | T], Acc)     -> htmlchars(T, ["\n" | Acc]);
-
 %% emphasis is a bit strange - must be preceeded by or followed by
 %% white space to work and can also be escaped
+%% there is a non-space filling white space represented by the atom 'none'
+%% which is created in the parser (NOT IN THE LEXER!) and which triggers
+%% emphasis or strong tags being turned on...
 htmlchars([$\\, $*, $* | T], A)    -> htmlchars(T, [$*, $* | A]);
 htmlchars([?TAB, $*, $* | T], A)   -> {T2, NewA} = strong(T, $*),
                                       htmlchars(T2, [NewA, ?TAB | A]);
 htmlchars([?SPACE, $*, $* | T], A) -> {T2, NewA} = strong(T, $*),
                                       htmlchars(T2, [NewA, ?SPACE | A]);
+%% the none atom is the non-space filling whitespace 
+htmlchars([none, $*, $* | T], A)   -> {T2, NewA} = strong(T, $*),
+                                      htmlchars(T2, [NewA | A]);
 htmlchars([$*, $* | T], A)         -> htmlchars(T, [$*, $* | A]);
 %% likewise for strong
 htmlchars([$\\, $* | T], A)        -> htmlchars(T, [$* | A]);
@@ -884,6 +966,9 @@ htmlchars([?TAB, $* | T], A)       -> {T2, NewA} = emphasis(T, $*),
                                       htmlchars(T2, [NewA, ?TAB | A]);
 htmlchars([?SPACE, $* | T], A)     -> {T2, NewA} = emphasis(T, $*),
                                       htmlchars(T2, [NewA, ?SPACE | A]);
+%% the null list character is the non-space filling whitespace 
+htmlchars([none, $* | T], A)       -> {T2, NewA} = emphasis(T, $*),
+                                      htmlchars(T2, [NewA | A]);
 htmlchars([$* | T], A)             -> htmlchars(T, [$* | A]);
 %% and again for underscores
 htmlchars([$\\, $_, $_ | T], A)    -> htmlchars(T, [$_, $_ | A]);
@@ -939,140 +1024,167 @@ interpolate2([H | T], Delim, Tag,  Acc)           -> interpolate2(T, Delim, Tag,
 %%%
 %%%-------------------------------------------------------------------
 
+%% we use a (very slightly) patched version which does no mark down if the input
+%% consists of a single line of text, so all the tests are written to be at
+%% least two lines just to stop all the unit tests breaking when we patch
+%% the code for our implementation
+%% Gordon Guthrie
+%% (our patch is the first commented out clause of the function parse/1)
+
 unit_test_() ->
     [
      % Quick Start
-     ?_assert(conv("3 > 4")              == "<p>3 &gt; 4</p>"),
-     ?_assert(conv("Hey Ho!\n")          == "<p>Hey Ho!</p>"),
+     ?_assert(conv("3 > 4\na")            == "<p>3 &gt; 4\na</p>"),
+     ?_assert(conv("Hey Ho!\na")          == "<p>Hey Ho!\na</p>"),
      ?_assert(conv("Hey\nHo!\nHardy\n\n") == "<p>Hey\nHo!\nHardy</p><br />"),
      % General Characters - First Char is an edge case
      % and make sure that the rest of the line parses to a list...
-     ?_assert(conv("<ab:c")    == "<p>&lt;ab:c</p>"),
-     ?_assert(conv("</ab:c")   == "<p>&lt;/ab:c</p>"),
-     ?_assert(conv("/ab:c")    == "<p>/ab:c</p>"),
-     ?_assert(conv("=ab:c")    == "<p>=ab:c</p>"),
-     ?_assert(conv("-ab:c")    == "<p>-ab:c</p>"),
+     ?_assert(conv("<ab:c\na")    == "<p>&lt;ab:c\na</p>"),
+     ?_assert(conv("</ab:c\na")   == "<p>&lt;/ab:c\na</p>"),
+     ?_assert(conv("/ab:c\na")    == "<p>/ab:c\na</p>"),
+     ?_assert(conv("=ab:c\na")    == "<p>=ab:c\na</p>"),
+     ?_assert(conv("-ab:c\na")    == "<p>-ab:c\na</p>"),
      ?_assert(conv("#ab:c")    == "<h1>ab:c</h1>"),
-     ?_assert(conv(">ab:c")    == "<p>&gt;ab:c</p>"),
-     ?_assert(conv("+ab:c")    == "<p>+ab:c</p>"),
-     ?_assert(conv("*ab:c")    == "<p>*ab:c</p>"),
-     ?_assert(conv("_ab:c")    == "<p>_ab:c</p>"),
-     ?_assert(conv("1ab:c")    == "<p>1ab:c</p>"),
-     ?_assert(conv("2ab:c")    == "<p>2ab:c</p>"),
-     ?_assert(conv("3ab:c")    == "<p>3ab:c</p>"),
-     ?_assert(conv("4ab:c")    == "<p>4ab:c</p>"),
-     ?_assert(conv("5ab:c")    == "<p>5ab:c</p>"),
-     ?_assert(conv("6ab:c")    == "<p>6ab:c</p>"),
-     ?_assert(conv("7ab:c")    == "<p>7ab:c</p>"),
-     ?_assert(conv("8ab:c")    == "<p>8ab:c</p>"),
-     ?_assert(conv("9ab:c")    == "<p>9ab:c</p>"),
-     ?_assert(conv("0ab:c")    == "<p>0ab:c</p>"),
-     ?_assert(conv(".ab:c")    == "<p>.ab:c</p>"),
-     ?_assert(conv(":ab:c")    == "<p>:ab:c</p>"),
-     ?_assert(conv("\'ab:c")   == "<p>\'ab:c</p>"),
-     ?_assert(conv("\"ab:c")   == "<p>\"ab:c</p>"),
-     ?_assert(conv("`ab:c")    == "<p><pre><code>ab:c</code></pre></p>"),
-     ?_assert(conv("!ab:c")    == "<p>!ab:c</p>"),
-     ?_assert(conv("\\ab:c")   == "<p>\\ab:c</p>"),
-     ?_assert(conv("/ab:c")    == "<p>/ab:c</p>"),
-     ?_assert(conv("(ab:c")    == "<p>(ab:c</p>"),
-     ?_assert(conv(")ab:c")    == "<p>)ab:c</p>"),
-     ?_assert(conv("[ab:c")    == "<p>[ab:c</p>"),
-     ?_assert(conv("]ab:c")    == "<p>]ab:c</p>"),
-     ?_assert(conv("(ab:c")    == "<p>(ab:c</p>"),
-     ?_assert(conv(" ab:c")    == "<p> ab:c</p>"),
+     ?_assert(conv(">ab:c\na")    == "<p>&gt;ab:c\na</p>"),
+     ?_assert(conv("+ab:c\na")    == "<p>+ab:c\na</p>"),
+     ?_assert(conv("*ab:c\na")    == "<p><em>ab:c\na</em></p>"),
+     ?_assert(conv("_ab:c\na")    == "<p>_ab:c\na</p>"),
+     ?_assert(conv("1ab:c\na")    == "<p>1ab:c\na</p>"),
+     ?_assert(conv("2ab:c\na")    == "<p>2ab:c\na</p>"),
+     ?_assert(conv("3ab:c\na")    == "<p>3ab:c\na</p>"),
+     ?_assert(conv("4ab:c\na")    == "<p>4ab:c\na</p>"),
+     ?_assert(conv("5ab:c\na")    == "<p>5ab:c\na</p>"),
+     ?_assert(conv("6ab:c\na")    == "<p>6ab:c\na</p>"),
+     ?_assert(conv("7ab:c\na")    == "<p>7ab:c\na</p>"),
+     ?_assert(conv("8ab:c\na")    == "<p>8ab:c\na</p>"),
+     ?_assert(conv("9ab:c\na")    == "<p>9ab:c\na</p>"),
+     ?_assert(conv("0ab:c\na")    == "<p>0ab:c\na</p>"),
+     ?_assert(conv(".ab:c\na")    == "<p>.ab:c\na</p>"),
+     ?_assert(conv(":ab:c\na")    == "<p>:ab:c\na</p>"),
+     ?_assert(conv("\'ab:c\na")   == "<p>\'ab:c\na</p>"),
+     ?_assert(conv("\"ab:c\na")   == "<p>\"ab:c\na</p>"),
+     ?_assert(conv("`ab:c\na")    == "<p><pre><code>ab:c\na</code></pre></p>"),
+     ?_assert(conv("!ab:c\na")    == "<p>!ab:c\na</p>"),
+     ?_assert(conv("\\ab:c\na")   == "<p>\\ab:c\na</p>"),
+     ?_assert(conv("/ab:c\na")    == "<p>/ab:c\na</p>"),
+     ?_assert(conv("(ab:c\na")    == "<p>(ab:c\na</p>"),
+     ?_assert(conv(")ab:c\na")    == "<p>)ab:c\na</p>"),
+     ?_assert(conv("[ab:c\na")    == "<p>[ab:c\na</p>"),
+     ?_assert(conv("]ab:c\na")    == "<p>]ab:c\na</p>"),
+     ?_assert(conv("(ab:c\na")    == "<p>(ab:c\na</p>"),
+     ?_assert(conv(" ab:c\na")    == "<p> ab:c\na</p>"),
      ?_assert(conv("\tab:c")   == "<pre><code>ab:c</code></pre>"),
-     ?_assert(conv("\nab:c")   == "<br /><p>ab:c</p>"),
-     ?_assert(conv("\r\nab:c") == "<br /><p>ab:c</p>"),
+     ?_assert(conv("\nab:c\na")   == "<br /><p>ab:c\na</p>"),
+     ?_assert(conv("\r\nab:c\na") == "<br /><p>ab:c\na</p>"),
      % General Characters - First Char followed by a space
      % and make sure that the rest of the line parses to a list...
-     ?_assert(conv("< ab:c")    == "<p>&lt; ab:c</p>"),
-     ?_assert(conv("< /ab:c")   == "<p>&lt; /ab:c</p>"),
-     ?_assert(conv("/ ab:c")    == "<p>/ ab:c</p>"),
-     ?_assert(conv("= ab:c")    == "<p>= ab:c</p>"),
+     ?_assert(conv("< ab:c\na")    == "<p>&lt; ab:c\na</p>"),
+     ?_assert(conv("< /ab:c\na")   == "<p>&lt; /ab:c\na</p>"),
+     ?_assert(conv("/ ab:c\na")    == "<p>/ ab:c\na</p>"),
+     ?_assert(conv("= ab:c\na")    == "<p>= ab:c\na</p>"),
      ?_assert(conv("- ab:c")    == "<ul><li>ab:c</li></ul>"),
      ?_assert(conv("# ab:c")    == "<h1>ab:c</h1>"),
-     ?_assert(conv("> ab:c")    == "<p>&gt; ab:c</p>"),
+     ?_assert(conv("> ab:c\na")    == "<p>&gt; ab:c\na</p>"),
      ?_assert(conv("+ ab:c")    == "<ul><li>ab:c</li></ul>"),
      ?_assert(conv("* ab:c")    == "<ul><li>ab:c</li></ul>"),
-     ?_assert(conv("_ ab:c")    == "<p>_ ab:c</p>"),
-     ?_assert(conv("1 ab:c")    == "<p>1 ab:c</p>"),
-     ?_assert(conv("2 ab:c")    == "<p>2 ab:c</p>"),
-     ?_assert(conv("3 ab:c")    == "<p>3 ab:c</p>"),
-     ?_assert(conv("4 ab:c")    == "<p>4 ab:c</p>"),
-     ?_assert(conv("5 ab:c")    == "<p>5 ab:c</p>"),
-     ?_assert(conv("6 ab:c")    == "<p>6 ab:c</p>"),
-     ?_assert(conv("7 ab:c")    == "<p>7 ab:c</p>"),
-     ?_assert(conv("8 ab:c")    == "<p>8 ab:c</p>"),
-     ?_assert(conv("9 ab:c")    == "<p>9 ab:c</p>"),
-     ?_assert(conv("0 ab:c")    == "<p>0 ab:c</p>"),
-     ?_assert(conv(". ab:c")    == "<p>. ab:c</p>"),
-     ?_assert(conv(": ab:c")    == "<p>: ab:c</p>"),
-     ?_assert(conv("\' ab:c")   == "<p>\' ab:c</p>"),
-     ?_assert(conv("\" ab:c")   == "<p>\" ab:c</p>"),
-     ?_assert(conv("` ab:c")    == "<p><pre><code> ab:c</code></pre></p>"),
-     ?_assert(conv("! ab:c")    == "<p>! ab:c</p>"),
-     ?_assert(conv("\\ ab:c")   == "<p>\\ ab:c</p>"),
-     ?_assert(conv("/ ab:c")    == "<p>/ ab:c</p>"),
-     ?_assert(conv("( ab:c")    == "<p>( ab:c</p>"),
-     ?_assert(conv(") ab:c")    == "<p>) ab:c</p>"),
-     ?_assert(conv("[ ab:c")    == "<p>[ ab:c</p>"),
-     ?_assert(conv("] ab:c")    == "<p>] ab:c</p>"),
-     ?_assert(conv("( ab:c")    == "<p>( ab:c</p>"),
-     ?_assert(conv("  ab:c")    == "<p>  ab:c</p>"),
+     ?_assert(conv("_ ab:c\na")    == "<p>_ ab:c\na</p>"),
+     ?_assert(conv("1 ab:c\na")    == "<p>1 ab:c\na</p>"),
+     ?_assert(conv("2 ab:c\na")    == "<p>2 ab:c\na</p>"),
+     ?_assert(conv("3 ab:c\na")    == "<p>3 ab:c\na</p>"),
+     ?_assert(conv("4 ab:c\na")    == "<p>4 ab:c\na</p>"),
+     ?_assert(conv("5 ab:c\na")    == "<p>5 ab:c\na</p>"),
+     ?_assert(conv("6 ab:c\na")    == "<p>6 ab:c\na</p>"),
+     ?_assert(conv("7 ab:c\na")    == "<p>7 ab:c\na</p>"),
+     ?_assert(conv("8 ab:c\na")    == "<p>8 ab:c\na</p>"),
+     ?_assert(conv("9 ab:c\na")    == "<p>9 ab:c\na</p>"),
+     ?_assert(conv("0 ab:c\na")    == "<p>0 ab:c\na</p>"),
+     ?_assert(conv(". ab:c\na")    == "<p>. ab:c\na</p>"),
+     ?_assert(conv(": ab:c\na")    == "<p>: ab:c\na</p>"),
+     ?_assert(conv("\' ab:c\na")   == "<p>\' ab:c\na</p>"),
+     ?_assert(conv("\" ab:c\na")   == "<p>\" ab:c\na</p>"),
+     ?_assert(conv("` ab:c\na")    == "<p><pre><code> ab:c\na</code></pre></p>"),
+     ?_assert(conv("! ab:c\na")    == "<p>! ab:c\na</p>"),
+     ?_assert(conv("\\ ab:c\na")   == "<p>\\ ab:c\na</p>"),
+     ?_assert(conv("/ ab:c\na")    == "<p>/ ab:c\na</p>"),
+     ?_assert(conv("( ab:c\na")    == "<p>( ab:c\na</p>"),
+     ?_assert(conv(") ab:c\na")    == "<p>) ab:c\na</p>"),
+     ?_assert(conv("[ ab:c\na")    == "<p>[ ab:c\na</p>"),
+     ?_assert(conv("] ab:c\na")    == "<p>] ab:c\na</p>"),
+     ?_assert(conv("( ab:c\na")    == "<p>( ab:c\na</p>"),
+     ?_assert(conv("  ab:c\na")    == "<p>  ab:c\na</p>"),
      ?_assert(conv("\t ab:c")   == "<pre><code> ab:c</code></pre>"),
-     ?_assert(conv("\n ab:c")   == "<br /><p> ab:c</p>"),
-     ?_assert(conv("\r\n ab:c") == "<br /><p> ab:c</p>"),
+     ?_assert(conv("\n ab:c\na")   == "<br /><p> ab:c\na</p>"),
+     ?_assert(conv("\r\n ab:c\na") == "<br /><p> ab:c\na</p>"),
      % General Characters - repeat above with the special char
      % in the middle of a line (the end is just 'another middle...')
-     ?_assert(conv("xyz<ab:c")    == "<p>xyz&lt;ab:c</p>"),
-     ?_assert(conv("xyz</ab:c")   == "<p>xyz&lt;/ab:c</p>"),
-     ?_assert(conv("xyz/ab:c")    == "<p>xyz/ab:c</p>"),
-     ?_assert(conv("xyz=ab:c")    == "<p>xyz=ab:c</p>"),
-     ?_assert(conv("xyz-ab:c")    == "<p>xyz-ab:c</p>"),
-     ?_assert(conv("xyz#ab:c")    == "<p>xyz#ab:c</p>"),
-     ?_assert(conv("xyz>ab:c")    == "<p>xyz&gt;ab:c</p>"),
-     ?_assert(conv("xyz+ab:c")    == "<p>xyz+ab:c</p>"),
-     ?_assert(conv("xyz*ab:c")    == "<p>xyz*ab:c</p>"),
-     ?_assert(conv("xyz_ab:c")    == "<p>xyz_ab:c</p>"),
-     ?_assert(conv("xyz1ab:c")    == "<p>xyz1ab:c</p>"),
-     ?_assert(conv("xyz2ab:c")    == "<p>xyz2ab:c</p>"),
-     ?_assert(conv("xyz3ab:c")    == "<p>xyz3ab:c</p>"),
-     ?_assert(conv("xyz4ab:c")    == "<p>xyz4ab:c</p>"),
-     ?_assert(conv("xyz5ab:c")    == "<p>xyz5ab:c</p>"),
-     ?_assert(conv("xyz6ab:c")    == "<p>xyz6ab:c</p>"),
-     ?_assert(conv("xyz7ab:c")    == "<p>xyz7ab:c</p>"),
-     ?_assert(conv("xyz8ab:c")    == "<p>xyz8ab:c</p>"),
-     ?_assert(conv("xyz9ab:c")    == "<p>xyz9ab:c</p>"),
-     ?_assert(conv("xyz0ab:c")    == "<p>xyz0ab:c</p>"),
-     ?_assert(conv("xyz.ab:c")    == "<p>xyz.ab:c</p>"),
-     ?_assert(conv("xyz:ab:c")    == "<p>xyz:ab:c</p>"),
-     ?_assert(conv("xyz\'ab:c")   == "<p>xyz\'ab:c</p>"),
-     ?_assert(conv("xyz\"ab:c")   == "<p>xyz\"ab:c</p>"),
-     ?_assert(conv("xyz`ab:c")    == "<p>xyz<pre><code>ab:c</code></pre></p>"),
-     ?_assert(conv("xyz!ab:c")    == "<p>xyz!ab:c</p>"),
-     ?_assert(conv("xyz\\ab:c")   == "<p>xyz\\ab:c</p>"),
-     ?_assert(conv("xyz/ab:c")    == "<p>xyz/ab:c</p>"),
-     ?_assert(conv("xyz(ab:c")    == "<p>xyz(ab:c</p>"),
-     ?_assert(conv("xyz)ab:c")    == "<p>xyz)ab:c</p>"),
-     ?_assert(conv("xyz[ab:c")    == "<p>xyz[ab:c</p>"),
-     ?_assert(conv("xyz]ab:c")    == "<p>xyz]ab:c</p>"),
-     ?_assert(conv("xyz(ab:c")    == "<p>xyz(ab:c</p>"),
-     ?_assert(conv("xyz ab:c")    == "<p>xyz ab:c</p>"),
-     ?_assert(conv("xyz\tab:c")   == "<p>xyz\tab:c</p>"),
-     ?_assert(conv("xyz\nab:c")   == "<p>xyz\nab:c</p>"),
-     ?_assert(conv("xyz\r\nab:c") == "<p>xyz\nab:c</p>"),
+     ?_assert(conv("xyz<ab:c\na")    == "<p>xyz&lt;ab:c\na</p>"),
+     ?_assert(conv("xyz</ab:c\na")   == "<p>xyz&lt;/ab:c\na</p>"),
+     ?_assert(conv("xyz/ab:c\na")    == "<p>xyz/ab:c\na</p>"),
+     ?_assert(conv("xyz=ab:c\na")    == "<p>xyz=ab:c\na</p>"),
+     ?_assert(conv("xyz-ab:c\na")    == "<p>xyz-ab:c\na</p>"),
+     ?_assert(conv("xyz#ab:c\na")    == "<p>xyz#ab:c\na</p>"),
+     ?_assert(conv("xyz>ab:c\na")    == "<p>xyz&gt;ab:c\na</p>"),
+     ?_assert(conv("xyz+ab:c\na")    == "<p>xyz+ab:c\na</p>"),
+     ?_assert(conv("xyz*ab:c\na")    == "<p>xyz*ab:c\na</p>"),
+     ?_assert(conv("xyz_ab:c\na")    == "<p>xyz_ab:c\na</p>"),
+     ?_assert(conv("xyz1ab:c\na")    == "<p>xyz1ab:c\na</p>"),
+     ?_assert(conv("xyz2ab:c\na")    == "<p>xyz2ab:c\na</p>"),
+     ?_assert(conv("xyz3ab:c\na")    == "<p>xyz3ab:c\na</p>"),
+     ?_assert(conv("xyz4ab:c\na")    == "<p>xyz4ab:c\na</p>"),
+     ?_assert(conv("xyz5ab:c\na")    == "<p>xyz5ab:c\na</p>"),
+     ?_assert(conv("xyz6ab:c\na")    == "<p>xyz6ab:c\na</p>"),
+     ?_assert(conv("xyz7ab:c\na")    == "<p>xyz7ab:c\na</p>"),
+     ?_assert(conv("xyz8ab:c\na")    == "<p>xyz8ab:c\na</p>"),
+     ?_assert(conv("xyz9ab:c\na")    == "<p>xyz9ab:c\na</p>"),
+     ?_assert(conv("xyz0ab:c\na")    == "<p>xyz0ab:c\na</p>"),
+     ?_assert(conv("xyz.ab:c\na")    == "<p>xyz.ab:c\na</p>"),
+     ?_assert(conv("xyz:ab:c\na")    == "<p>xyz:ab:c\na</p>"),
+     ?_assert(conv("xyz\'ab:c\na")   == "<p>xyz\'ab:c\na</p>"),
+     ?_assert(conv("xyz\"ab:c\na")   == "<p>xyz\"ab:c\na</p>"),
+     ?_assert(conv("xyz`ab:c\na")    == "<p>xyz<pre><code>ab:c\na</code></pre></p>"),
+     ?_assert(conv("xyz!ab:c\na")    == "<p>xyz!ab:c\na</p>"),
+     ?_assert(conv("xyz\\ab:c\na")   == "<p>xyz\\ab:c\na</p>"),
+     ?_assert(conv("xyz/ab:c\na")    == "<p>xyz/ab:c\na</p>"),
+     ?_assert(conv("xyz(ab:c\na")    == "<p>xyz(ab:c\na</p>"),
+     ?_assert(conv("xyz)ab:c\na")    == "<p>xyz)ab:c\na</p>"),
+     ?_assert(conv("xyz[ab:c\na")    == "<p>xyz[ab:c\na</p>"),
+     ?_assert(conv("xyz]ab:c\na")    == "<p>xyz]ab:c\na</p>"),
+     ?_assert(conv("xyz(ab:c\na")    == "<p>xyz(ab:c\na</p>"),
+     ?_assert(conv("xyz ab:c\na")    == "<p>xyz ab:c\na</p>"),
+     ?_assert(conv("xyz\tab:c\na")   == "<p>xyz\tab:c\na</p>"),
+     ?_assert(conv("xyz\nab:c\na")   == "<p>xyz\nab:c\na</p>"),
+     ?_assert(conv("xyz\r\nab:c\na") == "<p>xyz\nab:c\na</p>"),
      % Escape a backtick
-     ?_assert(conv("abc\\`def")   == "<p>abc`def</p>"),  % escaped \ in the string!
+     ?_assert(conv("abc\\`def\na")   == "<p>abc`def\na</p>"),  % escaped \ in the string!
+     % single char tests on a line for significant chars
+     ?_assert(conv("=\na") == "<p>=\na</p>"),
+     ?_assert(conv("-\na") == "<hr /><p>a</p>"),
+     ?_assert(conv(">\na") == "<p>&gt;\na</p>"),
+     ?_assert(conv("[\na") == "<p>[\na</p>"),
+     ?_assert(conv("\n=\na") == "<br /><p>=\na</p>"),
+     ?_assert(conv("\n-\na") == "<br /><hr /><p>a</p>"),
+     ?_assert(conv("\n>\na") == "<br /><p>&gt;\na</p>"),
+     ?_assert(conv("\n[\na") == "<br /><p>[\na</p>"),
+     % atx headers are a real pain :(
+     ?_assert(conv("#\na") == "<p>#\na</p>"),
+     ?_assert(conv("##\na") == "<h1>#</h1><p>a</p>"),
+     ?_assert(conv("###\na") == "<h2>#</h2><p>a</p>"),
+     ?_assert(conv("####\na") == "<h3>#</h3><p>a</p>"),
+     ?_assert(conv("#####\na") == "<h4>#</h4><p>a</p>"),
+     ?_assert(conv("######\na") == "<h5>#</h5><p>a</p>"),
+     ?_assert(conv("#######\na") == "<h6>#</h6><p>a</p>"),
+     ?_assert(conv("########\na") == "<h6>#</h6><p>a</p>"),
      % Emphasis
-     ?_assert(conv("you *sad* bastard")     == "<p>you <em>sad</em> bastard</p>"),
-     ?_assert(conv("you **sad** bastard")   == "<p>you <strong>sad</strong> bastard</p>"),
-     ?_assert(conv("you _sad_ bastard")     == "<p>you <em>sad</em> bastard</p>"),
-     ?_assert(conv("you __sad__ bastard")   == "<p>you <strong>sad</strong> bastard</p>"),
-     ?_assert(conv("you*sad*bastard")       == "<p>you*sad*bastard</p>"),
-     ?_assert(conv("you_sad_bastard")       == "<p>you_sad_bastard</p>"),
-     ?_assert(conv("you \\*sad\\* bastard") == "<p>you *sad* bastard</p>"),
-     ?_assert(conv("you \\_sad\\_ bastard") == "<p>you _sad_ bastard</p>"),
+     ?_assert(conv("you *sad* bastard\na")     == "<p>you <em>sad</em> bastard\na</p>"),
+     ?_assert(conv("you **sad** bastard\na")   == "<p>you <strong>sad</strong> bastard\na</p>"),
+     ?_assert(conv("you _sad_ bastard\na")     == "<p>you <em>sad</em> bastard\na</p>"),
+     ?_assert(conv("you __sad__ bastard\na")   == "<p>you <strong>sad</strong> bastard\na</p>"),
+     ?_assert(conv("you*sad*bastard\na")       == "<p>you*sad*bastard\na</p>"),
+     ?_assert(conv("you_sad_bastard\na")       == "<p>you_sad_bastard\na</p>"),
+     ?_assert(conv("you \\*sad\\* bastard\na") == "<p>you *sad* bastard\na</p>"),
+     ?_assert(conv("you \\_sad\\_ bastard\na") == "<p>you _sad_ bastard\na</p>"),
+     ?_assert(conv("*you* sad bastard\na")     == "<p><em>you</em> sad bastard\na</p>"),
+     ?_assert(conv("**you** sad bastard\na")   == "<p><strong>you</strong> sad bastard\na</p>"),
      % Breaking up in to lines
      ?_assert(conv("blah\nblah")       == "<p>blah\nblah</p>"),
      ?_assert(conv("blah\r\nblah")     == "<p>blah\nblah</p>"),
@@ -1082,6 +1194,11 @@ unit_test_() ->
      ?_assert(conv("blahblah\n-----")  == "<h2>blahblah</h2>"),
      ?_assert(conv("blahblah\n====\nblah")   == "<h1>blahblah</h1><p>blah</p>"),
      ?_assert(conv("blahblah\n-----\nblah")  == "<h2>blahblah</h2><p>blah</p>"),
+     % Setext overrides blockquote and codeblock
+     ?_assert(conv("> a\n=")    == "<h1>&gt; a</h1>"),
+     ?_assert(conv("    a\n=") == "<h1>a</h1>"),
+     ?_assert(conv("> a\n-")    == "<h2>&gt; a</h2>"),
+     ?_assert(conv("    a\n-") == "<h2>a</h2>"),
      % ATX headers
      ?_assert(conv("# blahblah")       == "<h1>blahblah</h1>"),
      ?_assert(conv("## blahblah")      == "<h2>blahblah</h2>"),
@@ -1089,7 +1206,7 @@ unit_test_() ->
      ?_assert(conv("#### blahblah")    == "<h4>blahblah</h4>"),
      ?_assert(conv("##### blahblah")   == "<h5>blahblah</h5>"),
      ?_assert(conv("###### blahblah")  == "<h6>blahblah</h6>"),
-     ?_assert(conv("####### blahblah") == "<h6>blahblah</h6>"),
+     ?_assert(conv("####### blahblah") == "<h6># blahblah</h6>"),
      ?_assert(conv("# blahblah ###")   == "<h1>blahblah</h1>"),
      ?_assert(conv("# blahblah\nbleh")       == "<h1>blahblah\n</h1><p>bleh</p>"),
      ?_assert(conv("## blahblah\nbleh")      == "<h2>blahblah\n</h2><p>bleh</p>"),
@@ -1097,20 +1214,20 @@ unit_test_() ->
      ?_assert(conv("#### blahblah\nbleh")    == "<h4>blahblah\n</h4><p>bleh</p>"),
      ?_assert(conv("##### blahblah\nbleh")   == "<h5>blahblah\n</h5><p>bleh</p>"),
      ?_assert(conv("###### blahblah\nbleh")  == "<h6>blahblah\n</h6><p>bleh</p>"),
-     ?_assert(conv("####### blahblah\nbleh") == "<h6>blahblah\n</h6><p>bleh</p>"),
+     ?_assert(conv("####### blahblah\nbleh") == "<h6># blahblah\n</h6><p>bleh</p>"),
      ?_assert(conv("# blahblah ###\nbleh")   == "<h1>blahblah</h1><p>bleh</p>"),
      % Basic blockquotes
-     ?_assert(conv("> blah")           == "<p>&gt; blah</p>"),
+     ?_assert(conv("> blah\na")           == "<p>&gt; blah\na</p>"),
      ?_assert(conv("bleh\n> blah")     == "<p>bleh</p><blockquote><p>blah</p></blockquote>"),
      ?_assert(conv("bleh  \n> blah")   == "<p>bleh</p><br /><blockquote><p>blah</p></blockquote>"),
      ?_assert(conv("bleh  \n> > blah") == "<p>bleh</p><br /><blockquote><p>&gt; blah</p></blockquote>"),
      % Basic unordered lists
      ?_assert(conv("+ blah")           == "<ul><li>blah</li></ul>"),
-     ?_assert(conv("+blah")            == "<p>+blah</p>"),
+     ?_assert(conv("+blah\na")            == "<p>+blah\na</p>"),
      ?_assert(conv("* blah")           == "<ul><li>blah</li></ul>"),
-     ?_assert(conv("*blah")            == "<p>*blah</p>"),
+     ?_assert(conv("*blah\na")            == "<p><em>blah\na</em></p>"),
      ?_assert(conv("- blah")           == "<ul><li>blah</li></ul>"),
-     ?_assert(conv("-blah")            == "<p>-blah</p>"),
+     ?_assert(conv("-blah\na")            == "<p>-blah\na</p>"),
      ?_assert(conv("- a\n+ b\n- c")    == "<ul><li>a\n</li><li>b\n</li><li>c</li></ul>"),   
      ?_assert(conv("- a\n\n+ b")       == "<ul><li><p>a\n</p></li><li><p>b</p></li></ul>"),    
      ?_assert(conv("- a\n\n+ b\n\n+ c\n* d") ==
@@ -1121,8 +1238,8 @@ unit_test_() ->
      ?_assert(conv("1. blah")          == "<ol><li>blah</li></ol>"),
      ?_assert(conv("4. blah")          == "<ol><li>blah</li></ol>"),
      ?_assert(conv("555. blah")        == "<ol><li>blah</li></ol>"),
-     ?_assert(conv("555" ++ [92, 46] ++ " blah") == "<p>555. blah</p>"),
-     ?_assert(conv("555.blah")         == "<p>555.blah</p>"),
+     ?_assert(conv("555" ++ [92, 46] ++ " blah\na") == "<p>555. blah\na</p>"),
+     ?_assert(conv("555.blah\na")         == "<p>555.blah\na</p>"),
      ?_assert(conv("4. blah\nblah")    == "<ol><li>blah\nblah</li></ol>"),
      ?_assert(conv("4. a\n5. b\n6. c") == "<ol><li>a\n</li><li>b\n</li><li>c</li></ol>"),
      ?_assert(conv("4. a\n\n5. b\n\n6. c") == "<ol><li><p>a\n</p></li><li><p>b\n</p></li><li><p>c</p></li></ol>"),
@@ -1147,7 +1264,7 @@ unit_test_() ->
      ?_assert(conv("*        blah<div>blah") == "<ul><li><pre><code>blah&lt;div&gt;blah</code></pre></li></ul>"),
      % Block elements
      ?_assert(conv("\n\n<div>\n\n<table>\n\n</table>\n\n") == "<br /><br /><DIV><TABLE></TABLE>"),
-     ?_assert(conv("blah<div>blah") == "<p>blah&lt;div&gt;blah</p>"),
+     ?_assert(conv("blah<div>blah\na") == "<p>blah&lt;div&gt;blah\na</p>"),
      % Horizontal Rules
      ?_assert(conv("***")     == "<hr />"),
      ?_assert(conv("---")     == "<hr />"),
@@ -1158,66 +1275,87 @@ unit_test_() ->
      ?_assert(conv("* * *")   == "<hr />"),
      ?_assert(conv("- - -")   == "<hr />"),
      ?_assert(conv("_ _ _")   == "<hr />"),
-     ?_assert(conv("***blah") == "<p>***blah</p>"),
-     ?_assert(conv("---blah") == "<p>---blah</p>"),
-     ?_assert(conv("___blah") == "<p>___blah</p>"),
+     ?_assert(conv("***blah\na") == "<p><strong>*blah\na</strong></p>"),
+     ?_assert(conv("---blah\na") == "<p>---blah\na</p>"),
+     ?_assert(conv("___blah\na") == "<p>___blah\na</p>"),
      % Reference Links
-     ?_assert(conv("a\n[id]: http://example.com \"Title\"")   == "<p>a</p>"),
-     ?_assert(conv("a\n[id]: http://example.com \'Title\'")   == "<p>a</p>"),
-     ?_assert(conv("a\n[id]: http://example.com (Title)")     == "<p>a</p>"),
+     ?_assert(conv("a\na\n[id]: http://example.com \"Title\"")   == "<p>a\na</p>"),
+     ?_assert(conv("a\na\n[id]: http://example.com \'Title\'")   == "<p>a\na</p>"),
+     ?_assert(conv("a\na\n[id]: http://example.com (Title)")     == "<p>a\na</p>"),
      % DOESN'T SUPPORT LINE BREAKS FOR URLS YET...
      % ?_assert(conv("a\n[id]: http://example.com\n\t (Title)") == "<p>a</p>"),
-     ?_assert(conv("a\n[id]: http://example.com")             == "<p>a</p>"),
-     ?_assert(conv("a\n[id]: <http://example.com>")           == "<p>a</p>"),
-     ?_assert(conv("a\n   [id]: http://example.com")          == "<p>a</p>"),
-     ?_assert(conv("a\n   [id]: /example.com")                == "<p>a</p>"),
+     ?_assert(conv("a\na\n[id]: http://example.com")             == "<p>a\na</p>"),
+     ?_assert(conv("a\na\n[id]: <http://example.com>")           == "<p>a\na</p>"),
+     ?_assert(conv("a\na\n   [id]: http://example.com")          == "<p>a\na</p>"),
+     ?_assert(conv("a\na\n   [id]: /example.com")                == "<p>a\na</p>"),
      % (you can indent up to 3 spaces)
+     % (note that after 3 spaces the inline id will be considered an href in
+     % its own right...
+     ?_assert(conv("a\n    \\[id]: http://example.com/")        ==
+              "<p>a</p><pre><code>[id]: http://example.com/</code></pre>"),
      ?_assert(conv("a\n    [id]: http://example.com/")        ==
               "<p>a</p><pre><code>[id]: http://example.com/</code></pre>"),
      % Inline Links
-     ?_assert(conv("An [example] (http://example.com/ \"Title\") of link") ==
-              "<p>An [example] (http://example.com/ \"Title\") of link</p>"),
-     ?_assert(conv("An [example](http://example.com/ \"Title\") of link") ==
-              "<p>An <a href=\"http://example.com/\" title=\"Title\">example</a> of link</p>"),
-     ?_assert(conv("An [](http://example.com/ \"Title\") of link") ==
-              "<p>An <a href=\"http://example.com/\" title=\"Title\"></a> of link</p>"),
-     ?_assert(conv("An [example](http://example.com/) of link") ==
-              "<p>An <a href=\"http://example.com/\" title=\"\">example</a> of link</p>"),
+     ?_assert(conv("An [example] (http://example.com/ \"Title\") of link\na") ==
+              "<p>An [example] (http://example.com/ \"Title\") of link\na</p>"),
+     ?_assert(conv("An [example](http://example.com/ \"Title\") of link\na") ==
+              "<p>An <a href=\"http://example.com/\" title=\"Title\">example</a> of link\na</p>"),
+     ?_assert(conv("An [](http://example.com/ \"Title\") of link\na") ==
+              "<p>An <a href=\"http://example.com/\" title=\"Title\"></a> of link\na</p>"),
+     ?_assert(conv("An [example](http://example.com/) of link\na") ==
+              "<p>An <a href=\"http://example.com/\" title=\"\">example</a> of link\na</p>"),
      % Inline Images
-     ?_assert(conv("an ![Alt] (path/jpg.jpg \"Title\") image") ==
-              "<p>an ![Alt] (path/jpg.jpg \"Title\") image</p>"),
-     ?_assert(conv("an ![Alt](path/jpg.jpg \"Title\") image") ==
-              "<p>an <img src=\"path/jpg.jpg\" title=\"Title\" alt=\"Alt\" /> image</p>"),     
-     ?_assert(conv("an ![Alt](path/jpg.jpg \'Title\') image") ==
-              "<p>an <img src=\"path/jpg.jpg\" title=\"Title\" alt=\"Alt\" /> image</p>"),     
-     ?_assert(conv("an ![Alt](path/jpg.jpg (Title)) image") ==
-              "<p>an <img src=\"path/jpg.jpg\" title=\"Title\" alt=\"Alt\" /> image</p>"),     
-     ?_assert(conv("an ![Alt](path/jpg.jpg ) image") ==
-              "<p>an <img src=\"path/jpg.jpg\" title=\"\" alt=\"Alt\" /> image</p>"),
-     ?_assert(conv("an ![](path/jpg.jpg ) image") ==
-              "<p>an <img src=\"path/jpg.jpg\" title=\"\" alt=\"\" /> image</p>"),
+     ?_assert(conv("an ![Alt] (path/jpg.jpg \"Title\") image\na") ==
+              "<p>an ![Alt] (path/jpg.jpg \"Title\") image\na</p>"),
+     ?_assert(conv("an ![Alt](path/jpg.jpg \"Title\") image\na") ==
+              "<p>an <img src=\"path/jpg.jpg\" title=\"Title\" alt=\"Alt\" /> image\na</p>"),     
+     ?_assert(conv("an ![Alt](path/jpg.jpg \'Title\') image\na") ==
+              "<p>an <img src=\"path/jpg.jpg\" title=\"Title\" alt=\"Alt\" /> image\na</p>"),     
+     ?_assert(conv("an ![Alt](path/jpg.jpg (Title)) image\na") ==
+              "<p>an <img src=\"path/jpg.jpg\" title=\"Title\" alt=\"Alt\" /> image\na</p>"),     
+     ?_assert(conv("an ![Alt](path/jpg.jpg ) image\na") ==
+              "<p>an <img src=\"path/jpg.jpg\" title=\"\" alt=\"Alt\" /> image\na</p>"),
+     ?_assert(conv("an ![](path/jpg.jpg ) image\na") ==
+              "<p>an <img src=\"path/jpg.jpg\" title=\"\" alt=\"\" /> image\na</p>"),
      % Reference Links
-      ?_assert(conv("[id]: /a/path\nSome text [hey][id] there") ==
-              "<p>Some text <a href=\"/a/path\" title=\"\">hey</a> there</p>"),
-      ?_assert(conv("[id]: /a/path\nSome text [hey] [id] there") ==
-              "<p>Some text <a href=\"/a/path\" title=\"\">hey</a> there</p>"),
-      ?_assert(conv("[id]: /a/path\nSome text [hey]  [id] there") ==
-              "<p>Some text [hey]  [id] there</p>"),
+     ?_assert(conv("[id]: /a/path\nSome text [hey][id] there\na") ==
+              "<p>Some text <a href=\"/a/path\" title=\"\">hey</a> there\na</p>"),
+     ?_assert(conv("[id]: /a/path\nSome text [hey] [id] there\na") ==
+              "<p>Some text <a href=\"/a/path\" title=\"\">hey</a> there\na</p>"),
+     ?_assert(conv("[id]: /a/path\nSome text [hey]  [id] there\na") ==
+              "<p>Some text [hey]  <a href=\"/a/path\" title=\"\"></a> there\na</p>"),
+     ?_assert(conv("[id]: /a/path\nSome text \\[id] there\na") ==
+              "<p>Some text \[id] there\na</p>"),
+     ?_assert(conv("[id]:   \t \t   /a/path\nSome text [hey][id] there\na") ==
+              "<p>Some text <a href=\"/a/path\" title=\"\">hey</a> there\na</p>"),
      % Reference Images
-      ?_assert(conv("[id]: /a/path\nSome text ![hey][id] there") ==
-              "<p>Some text <img src=\"/a/path\" title=\"\" alt=\"hey\" /> there</p>"),
-      ?_assert(conv("[id]: /a/path\nSome text ![hey] [id] there") ==
-              "<p>Some text <img src=\"/a/path\" title=\"\" alt=\"hey\" /> there</p>"),
-      ?_assert(conv("[id]: /a/path\nSome text ![hey]  [id] there") ==
-              "<p>Some text ![hey]  [id] there</p>"),
+     ?_assert(conv("[id]: /a/path\nSome text ![hey][id] there\na") ==
+              "<p>Some text <img src=\"/a/path\" title=\"\" alt=\"hey\" /> there\na</p>"),
+     ?_assert(conv("[id]: /a/path\nSome text ![hey] [id] there\na") ==
+              "<p>Some text <img src=\"/a/path\" title=\"\" alt=\"hey\" /> there\na</p>"),
+     ?_assert(conv("[id]: /a/path\nSome text ![hey]  [id] there\na") ==
+              "<p>Some text ![hey]  <a href=\"/a/path\" title=\"\"></a> there\na</p>"),
      %% urls and e-mail addresses inline...
-     ?_assert(conv("blah <http://something.com:1234/a/path> blah") ==
-              "<p>blah <a href=\"http://something.com:1234/a/path\">http://something.com:1234/a/path</a> blah</p>"),
-     ?_assert(conv("blah <https://something.com:1234/a/path> blah") ==
-              "<p>blah <a href=\"https://something.com:1234/a/path\">https://something.com:1234/a/path</a> blah</p>"),
-     ?_assert(conv("blah <httpx://something.com:1234/a/path> blah") ==
-              "<p>blah &lt;httpx://something.com:1234/a/path&gt; blah</p>"),
+     ?_assert(conv("blah <http://something.com:1234/a/path> blah\na") ==
+              "<p>blah <a href=\"http://something.com:1234/a/path\">http://something.com:1234/a/path</a> blah\na</p>"),
+     ?_assert(conv("blah <https://something.com:1234/a/path> blah\na") ==
+              "<p>blah <a href=\"https://something.com:1234/a/path\">https://something.com:1234/a/path</a> blah\na</p>"),
+     ?_assert(conv("blah <httpx://something.com:1234/a/path> blah\na") ==
+              "<p>blah &lt;httpx://something.com:1234/a/path&gt; blah\na</p>"),
      % Erk, this is a bit spam-tastic...
-     ?_assert(conv("blah <junk@spam.com> blah") ==
-              "<p>blah <a href=\"mailto:junk@spam.com\" /> blah</p>")
+     ?_assert(conv("blah <junk@spam.com> blah\na") ==
+              "<p>blah <a href=\"mailto:junk@spam.com\" /> blah\na</p>"),
+     %
+     % The Rich Text Editor we use supports an abbreviated syntax for links
+     %
+     ?_assert(conv("My [id] test\n[id]: http://example.com") == 
+               "<p>My <a href=\"http://example.com\" title=\"\"></a> test</p>"),
+     ?_assert(conv("My [link][id] test\n[id]: http://example.com") == 
+              "<p>My <a href=\"http://example.com\" title=\"\">link</a> test</p>"),
+
+     %
+     % Bug fix regression tests
+     %
+     ?_assert(conv("Now\n\n    who\n\n> swine\n\n") ==
+              "<p>Now</p><br /><pre><code>who\n</code></pre><br /><blockquote><p>swine</p></blockquote><br />")
     ].
