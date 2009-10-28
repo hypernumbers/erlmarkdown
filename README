@@ -1,8 +1,43 @@
 Release Notes
 =============
 
+Version 1.0 Production Release
+------------------------------
+
+This is a major rewrite. There is little point writing servers-side markdown
+without a client-side markdown to preview it.
+
+This markdown will now track showdown from Attack Labs as its twin 
+implementation.
+
+<http://attacklab.net/showdown/>
+
+To that end the test suite has been repurposed to test
+compatibility with showdown. The current release of showdown used is V0.9
+
+The directory `/tests` now contains an webpage `index.html` which generates
+the tests (ie the file `markdown_tests.erl` in `/src`).
+
+`index.html` loads a javascript file `generate_tests.js` which holds a list of 
+strings which it generates the tests from (ie testing if markdown produces the
+same output as showdown...)
+
+There are a number of places where markdown is not *whitespace compatible* with showdown - you can inspect these by looking for commented out tests in 
+`generate_tests.js`. There are also a number of showdown bugs or other 
+inconsistencies which also show up as commented out tests in 
+`generate_tests.js`.
+
+The biggest single difference is that showdown doesn't escape any html tags
+by default whereas markdown has a whitelist of blocklevel tags which it doesn't
+escape (see the function `markdown:is_block_tag/1`).
+
+(Other) Known Bugs and Errata:
+as per the previous versions (see bottom of document)
+
+There are 261 Unit Tests.
+
 Version 1.0 RC1.1 First Point Release
--------------------------------
+-------------------------------------
 
 Various bug fixes:
 * supports short inline URL references of the form 'some text [id] some more'
@@ -20,8 +55,8 @@ This version comes with 226 Unit Tests and is being released for pre-production 
 
 It also has 1 System Test - this document :)
 
-Errata
-======
+Known Bugs And Errata
+=====================
 
 1  This is a valid markdown for references
 ------------------------------------------

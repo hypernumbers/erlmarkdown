@@ -1,22 +1,140 @@
-<h1>Release Notes</h1><br /><h2>Version 1.0 RC1.1 First Point Release</h2><br /><p>Various bug fixes:</p><ul><li>supports short inline URL references of the form 'some text [id] some more'
-</li><li>fixes bugs with lines containing markdown only like '#', '&gt;', '=' and '-'
-</li><li>fixes a bug where a terminating '\n\n' would mean each line came back reversed
-</li><li>fixes various 'atx header' bugs
-</li><li>fixes bugs where lines start with an emphasis or strong marker (thanks to Tom McNulty)
-</li></ul><br /><p>Unit tests bumped up to 255.</p><br /><h2>Version 1.0 RC1 Production Release Candidate</h2><br /><p>This version comes with 226 Unit Tests and is being released for pre-production testing.</p><br /><p>It also has 1 System Test - this document :)</p><br /><h1>Errata</h1><br /><h2>1  This is a valid markdown for references</h2><br /><pre><code>[id]: http://sub.dom.tld:1234/some/path\\t\\n(Title)
-</code></pre><br /><p>The title wrap to a new line is not supported in this release.</p><br /><h2>2 Character Escaping</h2><br /><p>I'm not entirely clear how character escaping should work for:</p><br /><pre><code>\   backslash
-</code></pre><pre><code>`   backtick
-</code></pre><pre><code>*   asterisk
-</code></pre><pre><code>_   underscore
-</code></pre><pre><code>{}  curly braces
-</code></pre><pre><code>[]  square brackets
-</code></pre><pre><code>()  parentheses
-</code></pre><pre><code>#   hash mark
-</code></pre><pre><code>+   plus sign
-</code></pre><pre><code>-   minus sign (hyphen)
-</code></pre><pre><code>.   dot
-</code></pre><pre><code>!   exclamation mark
-</code></pre><br /><p>I escape them only in context.</p><br /><h2>3 Anti-spam mailto's</h2><br /><p>The official release obfuscated e-mail addresses, this don't :(</p><br /><h1>What It Is</h1><br /><p>This is an Erlang implementation of Markdown.</p><br /><p>See http://daringfireball.net/projects/markdown/ for details</p><br /><h1>License</h1><br /><p>The license is the same as the original Markdown</p><br /><br /><h2>Musical Colophon</h2><br /><p>'My Song' when I wrote this was:
-<a href="http://open.spotify.com/track/6mqdunuFFSODHKcpDTFvAj">http://open.spotify.com/track/6mqdunuFFSODHKcpDTFvAj</a></p><br /><p>'Generic Song' to play when you find a bug in my code:
-<a href="http://open.spotify.com/track/5YLa8jWik5OqgBoSix3NUp">http://open.spotify.com/track/5YLa8jWik5OqgBoSix3NUp</a></p><br /><p>'Generic Song' about how I feel about myself when you find a bug:
+<h1>Release Notes</h1>
+
+
+<h2>Version 1.0 Production Release</h2>
+
+
+<p>This is a major rewrite. There is little point writing servers-side markdown
+without a client-side markdown to preview it.</p>
+
+<p>This markdown will now track showdown from Attack Labs as its twin 
+implementation.</p>
+
+<p><a href="http://attacklab.net/showdown/">http://attacklab.net/showdown/</a></p>
+
+<p>To that end the test suite has been repurposed to test
+compatibility with showdown. The current release of showdown used is V0.9</p>
+
+<p>The directory <code>/tests</code> now contains an webpage &lt;code>index.html&lt;/code> which generates
+the tests (ie the file &amp;lt;code>markdown_tests.erl</code> in <code>/src</code>).</p>
+
+<p><code>index.html</code> loads a javascript file &lt;code>generate_tests.js</code> which holds a list of 
+strings which it generates the tests from (ie testing if markdown produces the
+same output as showdown...)</p>
+
+<p>There are a number of places where markdown is not <em>whitespace compatible</em> with showdown - you can inspect these by looking for commented out tests in 
+<code>generate<em>tests.js</code>. There are also a number of showdown bugs or other 
+inconsistencies which also show up as commented out tests in 
+<code>generate&lt;/em>tests.js</code>.</p>
+
+<p>The biggest single difference is that showdown doesn't escape any html tags
+by default whereas markdown has a whitelist of blocklevel tags which it doesn't
+escape (see the function <code>markdown:is<em>block</em>tag/1</code>).</p>
+
+<p>(Other) Known Bugs and Errata:
+as per the previous versions (see bottom of document)</p>
+
+<p>There are 261 Unit Tests.</p>
+
+<h2>Version 1.0 RC1.1 First Point Release</h2>
+
+
+<p>Various bug fixes:</p>
+<ul>
+<li>supports short inline URL references of the form 'some text [id] some more'</li>
+<li>fixes bugs with lines containing markdown only like '#', '>', '=' and '-'</li>
+<li>fixes a bug where a terminating '\n\n' would mean each line came back reversed</li>
+<li>fixes various 'atx header' bugs</li>
+<li>fixes bugs where lines start with an emphasis or strong marker (thanks to Tom McNulty)</li>
+</ul>
+<p>Unit tests bumped up to 255.</p>
+
+<h2>Version 1.0 RC1 Production Release Candidate</h2>
+
+
+<p>This version comes with 226 Unit Tests and is being released for pre-production testing.</p>
+
+<p>It also has 1 System Test - this document :)</p>
+
+<h1>Known Bugs And Errata</h1>
+
+
+<h2>1  This is a valid markdown for references</h2>
+
+
+<pre><code>[id]: http://sub.dom.tld:1234/some/path\\t\\n(Title)
+</code></pre>
+
+<p>The title wrap to a new line is not supported in this release.</p>
+
+<h2>2 Character Escaping</h2>
+
+
+<p>I'm not entirely clear how character escaping should work for:</p>
+
+<pre><code>\   backslash
+</code></pre>
+
+<pre><code>`   backtick
+</code></pre>
+
+<pre><code>*   asterisk
+</code></pre>
+
+<pre><code>_   underscore
+</code></pre>
+
+<pre><code>{}  curly braces
+</code></pre>
+
+<pre><code>[]  square brackets
+</code></pre>
+
+<pre><code>()  parentheses
+</code></pre>
+
+<pre><code>#   hash mark
+</code></pre>
+
+<pre><code>+   plus sign
+</code></pre>
+
+<pre><code>-   minus sign (hyphen)
+</code></pre>
+
+<pre><code>.   dot
+</code></pre>
+
+<pre><code>!   exclamation mark
+</code></pre>
+
+<p>I escape them only in context.</p>
+
+<h2>3 Anti-spam mailto's</h2>
+
+
+<p>The official release obfuscated e-mail addresses, this don't :(</p>
+
+<h1>What It Is</h1>
+
+
+<p>This is an Erlang implementation of Markdown.</p>
+
+<p>See http://daringfireball.net/projects/markdown/ for details</p>
+
+<h1>License</h1>
+
+
+<p>The license is the same as the original Markdown</p>
+
+<h2>Musical Colophon</h2>
+
+
+<p>'My Song' when I wrote this was:
+<a href="http://open.spotify.com/track/6mqdunuFFSODHKcpDTFvAj">http://open.spotify.com/track/6mqdunuFFSODHKcpDTFvAj</a></p>
+
+<p>'Generic Song' to play when you find a bug in my code:
+<a href="http://open.spotify.com/track/5YLa8jWik5OqgBoSix3NUp">http://open.spotify.com/track/5YLa8jWik5OqgBoSix3NUp</a></p>
+
+<p>'Generic Song' about how I feel about myself when you find a bug:
 <a href="http://open.spotify.com/track/2RbJj7D5pRff82NtDDSwah">http://open.spotify.com/track/2RbJj7D5pRff82NtDDSwah</a></p>
