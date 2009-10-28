@@ -1,0 +1,16 @@
+<html>
+  <head>
+    <title>Showdown Compatibility Unit Test Generator for erlmarkdown</title>
+  </head>
+  <body>
+    <h1>Showdown Compatibility Unit Test Generator For <code>erlmarkdown</code></h1>
+    <h2>Purpose</h2>
+    <p>erlmarkdown is a server-side implementation of markdown written in Erlang. In order to practically use it, you need a client side implementation (written in javascript) which <em>produces the same outputs from the same inputs</em>.</p>
+    <p>The client-side library of choice for <code>erlmarkdown</code> is <code>showdown</code> from <a href="http://attacklab.com">Attack Labs</a>.</p>
+    <p>This page just has a set of markdown terms in it which it runs through showdown to generate the unit tests that are included in <code>erlmarkdown</code></p>
+    <textarea id="tests" cols=120 rows=20></textarea>
+    <script src="./showdown.js"></script>
+    <script src="./generate_tests.js"></script>
+  </body>
+</html>
+    
