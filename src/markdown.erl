@@ -374,11 +374,6 @@ make_lines(Tokens) -> ml1(Tokens, [], []).
 
 ml1([], [], A2)                -> reverse(A2);
 ml1([], A1, A2)                -> ml1([], [], [reverse(A1) | A2]);
-%% these are normal blockquotes
-% ml1([{{lf, _}, _} = LF,
-%      {{md, gt}, _} = BQ | T], [], A2) -> ml1(T, [], [[BQ], [LF] | A2]);
-% ml1([{{lf, _}, _} = LF,
-%     {{md, gt}, _} = BQ | T], A1, A2) -> ml1(T, [], [[BQ], ml2(LF, A1) | A2]);
 ml1([{{lf, _}, _} = H | T], A1, A2) -> ml1(T, [], [ml2(H, A1) | A2]);
 ml1([H | T], A1, A2)                -> ml1(T, [H | A1], A2).
 
@@ -495,12 +490,6 @@ t_inline(H, T1, T2, A1, A2) ->
                                            [{Type, H} | A2]);
         normal                     -> t_l1(T2, A1, [{normal, H} | A2])
     end.
-
-%% fix_up_bq fixes up blockquotes on the first line
-fix_up_bq([{normal,
-            [{{md, gt}, _} = BQ | T1]} | T2]) -> [{blockquote, BQ},
-                                                  {normal, T1} | T2];
-fix_up_bq(List)                               -> List.
 
 %% strips blanks from the beginning and end
 strip_lines(List) -> reverse(strip_l1(reverse(strip_l1(List)))).
