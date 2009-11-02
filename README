@@ -1,6 +1,32 @@
 Release Notes
 =============
 
+Version 1.1 Production Bug Fix
+------------------------------
+
+In the beginning erlmarkdown was an implementation of markdown written to spec
+- the spec being the daring-fireball syntax page.
+
+BUT it soon transpired that there were significant differences between *our*
+implementation of the spec and that of showdown (from attacklabs.net). Given
+that the client-side markdown and the server-side markdown need to work together
+we switched the erlang code from being an implementation of the spec to being
+a server-side implementation of showdown.
+
+BUT the WMD dialog box produces (as input) code which is 'off spec' (but which
+showdown supports), **so**...
+
+Version 1.1 is tested for compatibility with:
+* showdown
+* the markdown input produced by the WMD dialog box editor
+
+We are tracking the release of WMD **and** showdown from this version on github:
+<http://github.com/derobins/wmd/commit/980f68797307d28f0541868c740974cb2eeb1209>
+
+We are no longer tracking the showdown code on attacklabs.net
+
+As a result of this the list of ERATTA AND KNOWN BUGS
+
 Version 1.0 Production Release
 ------------------------------
 
@@ -89,6 +115,11 @@ I escape them only in context.
 --------------------
 
 The official release obfuscated e-mail addresses, this don't :(
+
+4 Nesting
+---------
+
+Showdown supports nested <ul>'s, <ol>'s and <blockquote>'s - erlmarkdown doesnt (yet)...
 
 What It Is
 ==========

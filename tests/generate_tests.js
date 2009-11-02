@@ -11,6 +11,7 @@ var tests = [
         "Hey Ho!\na",
         "Hey\nHo!\nHardy\n\n",
         "Hey Ho  \nLets Go",
+        "Hey Ho\t\nLets Go",
         "    \nHey\nHo!  \nLets Go",
         // General Characters - First Char is an edge case
         // and make sure that the rest of the line parses to a list...
@@ -284,7 +285,7 @@ var tests = [
         "An [example] (http://example.com/ \"Title\") of link\na",
         "An [example](http://example.com/ \"Title\") of link\na",
         "An [example](http://example.com/ \'Title\') of link\na",
-        "An [example](http://example.com/ (Title)) of link\na",
+        //"An [example](http://example.com/ (Title)) of link\na", in showdown this invalid format is invalid in a different way to an inline http reference with the title in brackets :(
         "An [](http://example.com/ \"Title\") of link\na",
         "An [example](http://example.com/) of link\na",
         // Inline Images
@@ -334,7 +335,28 @@ var tests = [
         // "  \n> blah\n blah", more whitespace guff
         // "  \n> blah\n> bleh\n\n", more whitespace guff
         // "  \n> blah\n bleh\n\n", more whitespace guff
-        "> blah\n-------------"
+        "> blah\n-------------",
+        // Bug Fix 29/10/09
+        // "Menu\n=====\n+ d\n + ee\n + qq dd\n + + List item\n", leave nested ul for another day
+        // formal WDM dialog box compatibility
+        // WMD produces text which is 'off spec'
+        // these tests just test the default WMD output
+        "blah [blah][1] blah\n\n\n  [1]: http://example.com",
+        "blah [blah][1] blah\n\n\n  [1]: http://example.com \"title\"",
+        "blah [blah][1] blah\n\n\n  [1]: http://example.com (title)",
+        // "Now is the winter of\n\n>  our discontent\n\n made glorious summer by this Son of York", whitespace incompatible!
+        "Now is the winter of `our discontent` made glorious summer by this Son of York",
+        "blah ![blah][1] blah\n\n\n  [1]: http://example.com",
+        "blah ![blah][1] blah\n\n\n  [1]: http://example.com \"title\"",
+        "blah ![blah][1] blah\n\n\n  [1]: http://example.com (title)",
+        " 1. a\n 2. b\n",
+        //" 1. alice\n  2. bob\n  3. chaz\n 4. dave", nested ol - leave for another day
+        //" 1. alice\n  2. bob\n     3. chaz\n 4. dave", nested ol - leave for another day
+        " - a\n - b\n",
+        // " - alice\n  - bob\n - chaz\n - dave", nested ul - leave for another day
+        // " - alice\n  - bob\n      - chaz\n - dave", nested ul - leave for another day
+        "> alice\n> bob\n> chaz",
+        "    alice\n    bob\nchaz"
         ];
 
 var converter;

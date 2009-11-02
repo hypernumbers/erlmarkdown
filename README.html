@@ -1,6 +1,34 @@
 <h1>Release Notes</h1>
 
 
+<h2>Version 1.1 Production Bug Fix</h2>
+
+
+<p>In the beginning erlmarkdown was an implementation of markdown written to spec</p>
+<ul>
+<li>the spec being the daring-fireball syntax page.</li>
+</ul>
+<p>BUT it soon transpired that there were significant differences between <em>our</em>
+implementation of the spec and that of showdown (from attacklabs.net). Given
+that the client-side markdown and the server-side markdown need to work together
+we switched the erlang code from being an implementation of the spec to being
+a server-side implementation of showdown.</p>
+
+<p>BUT the WMD dialog box produces (as input) code which is 'off spec' (but which
+showdown supports), <strong>so</strong>...</p>
+
+<p>Version 1.1 is tested for compatibility with:</p>
+<ul>
+<li>showdown</li>
+<li>the markdown input produced by the WMD dialog box editor</li>
+</ul>
+<p>We are tracking the release of WMD <strong>and</strong> showdown from this version on github:
+<a href="http://github.com/derobins/wmd/commit/980f68797307d28f0541868c740974cb2eeb1209">http://github.com/derobins/wmd/commit/980f68797307d28f0541868c740974cb2eeb1209</a></p>
+
+<p>We are no longer tracking the showdown code on attacklabs.net</p>
+
+<p>As a result of this the list of ERATTA AND KNOWN BUGS</p>
+
 <h2>Version 1.0 Production Release</h2>
 
 
@@ -62,8 +90,6 @@ as per the previous versions (see bottom of document)</p>
 <h2>1  This is a valid markdown for references</h2>
 
 
-<pre><code>[id]: http://sub.dom.tld:1234/some/path\\t\\n(Title)
-</code></pre>
 
 <p>The title wrap to a new line is not supported in this release.</p>
 
@@ -73,39 +99,26 @@ as per the previous versions (see bottom of document)</p>
 <p>I'm not entirely clear how character escaping should work for:</p>
 
 <pre><code>\   backslash
+`   backtick
 </code></pre>
 
-<pre><code>`   backtick
-</code></pre>
-
-<pre><code>*   asterisk
-</code></pre>
-
-<pre><code>_   underscore
-</code></pre>
-
-<pre><code>{}  curly braces
-</code></pre>
-
-<pre><code>[]  square brackets
-</code></pre>
-
+<ul>
+<li>asterisk
+_   underscore
+{}  curly braces
+    []  square brackets
+</li>
+</ul>
 <pre><code>()  parentheses
+#   hash mark
 </code></pre>
 
-<pre><code>#   hash mark
-</code></pre>
-
-<pre><code>+   plus sign
-</code></pre>
-
-<pre><code>-   minus sign (hyphen)
-</code></pre>
-
+<ul>
+<li>plus sign</li>
+<li>minus sign (hyphen)</li>
+</ul>
 <pre><code>.   dot
-</code></pre>
-
-<pre><code>!   exclamation mark
+!   exclamation mark
 </code></pre>
 
 <p>I escape them only in context.</p>
@@ -114,6 +127,11 @@ as per the previous versions (see bottom of document)</p>
 
 
 <p>The official release obfuscated e-mail addresses, this don't :(</p>
+
+<h2>4 Nesting</h2>
+
+
+<p>Showdown supports nested &lt;ul&gt;'s, &lt;ol&gt;'s and &lt;blockquote&gt;'s - erlmarkdown doesnt (yet)...</p>
 
 <h1>What It Is</h1>
 
