@@ -356,7 +356,10 @@ var tests = [
         // " - alice\n  - bob\n - chaz\n - dave", nested ul - leave for another day
         // " - alice\n  - bob\n      - chaz\n - dave", nested ul - leave for another day
         "> alice\n> bob\n> chaz",
-        "    alice\n    bob\nchaz"
+        "    alice\n    bob\nchaz",
+          // bugfixing
+        "[login](_underscore)",
+        "![login](_underscore)"
         ];
 
 var converter;

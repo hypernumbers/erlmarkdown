@@ -100,7 +100,8 @@ p1([{tag, Tag} | T], R, I, Acc) ->
         [{blank, _} | T2] -> p1(T2, R, I, 
                                 [make_tag_str(Tag) | Acc]);
         _Other            -> p1(T, R, I, 
-                                [pad(I) ++ "<p>" ++ make_tag_str(Tag) ++ "</p>" | Acc])
+                                [pad(I) ++ "<p>" ++ make_tag_str(Tag) ++
+                                 "</p>" | Acc])
     end;
 
 %% blank lines/linefeeds are gobbled down
@@ -238,7 +239,7 @@ make_br(List) -> make_br1(reverse(List)).
 make_br1([{{lf, _}, _},
           {{ws, comp}, _} | T]) -> reverse([{tags, " <br />\n"} | T]);
 make_br1([{{lf, _}, _},
-          {{ws, tab}, _} | T]) -> reverse([{tags, " <br />\n"} | T]);
+          {{ws, tab}, _} | T])  -> reverse([{tags, " <br />\n"} | T]);
 make_br1(List)                  -> reverse(List).
 
 pad(N) -> pad1(N, []).
@@ -993,15 +994,14 @@ m_esc([H | T], R, A)           -> m_esc(T, R, [make_str([H], R) | A]).
 make_str(List, Refs) -> m_str1(List, Refs, []).
 
 m_str1([], _R, A) ->
-    Flat = flatten(reverse (A)),
+    Flat = flatten(reverse(A)),
     htmlchars(Flat);
 m_str1([{{punc, bang}, B}, {{inline, open}, O} | T], R, A) ->
     case get_inline(T, R, [], img) of
-        {Rest, {Url, Title, Acc}} -> Tag = [{tags, "<img src=\""}, Url ++ "\""
+        {Rest, {Url, Title, Acc}} -> Tag = [{tags, "<img src=\"" ++ Url ++ "\""
                                             ++ " alt=\"" ++ Acc ++ "\""
                                             ++ " title=\"" ++ Title ++ "\""
-                                            , {tags," />"}],
-                                     
+                                            ++ " />"}],
                                      m_str1(Rest, R, [Tag | A]);
         {Rest, Tag}               -> m_str1(Rest, R, [Tag, O, B | A])
     end;
@@ -1014,9 +1014,8 @@ m_str1([{{inline, open}, O} | T], R, A) ->
                                                [] -> [];
                                                _  -> " title=\"" ++ Title ++ "\""
                                            end,
-                                     Tag = [{tags, "<a href=\""}, Url ++ "\""
-                                            ++ Tit,
-                                            {tags, ">"}, Acc,
+                                     Tag = [{tags, "<a href=\"" ++ Url ++ "\""
+                                            ++ Tit ++ ">"}, Acc,
                                             {tags, "</a>"} | []],
                                      m_str1(Rest, R, [Tag | A]);
         {Rest, Tag}               -> m_str1(Rest, R, [Tag, O | A])
@@ -1175,6 +1174,7 @@ interpolate3([D, D, D | T], D, Tag1, Tag2, _X, Acc) -> {T,  "<" ++ Tag1 ++ ">"
                                                         ++ "</" ++ Tag1 ++ ">"};
 interpolate3([H | T], D, Tag1, Tag2, X, Acc) ->
     interpolate3(T, D, Tag1, Tag2, X, [H | Acc]).
+
 
 %%%-------------------------------------------------------------------
 %%%

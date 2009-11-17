@@ -1,5 +1,7 @@
 unit_test_() -> 
     [
+     ?_assert(conv("![login](_underscore)") == "<p><img src=\"_underscore\" alt=\"login\" title=\"\" /></p>"),
+     ?_assert(conv("[login](_underscore)") == "<p><a href=\"_underscore\">login</a></p>"),
      ?_assert(conv("    alice\n    bob\nchaz") == "<pre><code>alice\nbob\n</code></pre>\n\n<p>chaz</p>"),
      ?_assert(conv("> alice\n> bob\n> chaz") == "<blockquote>\n  <p>alice\n  bob\n  chaz</p>\n</blockquote>"),
      ?_assert(conv(" - a\n - b\n") == "<ul>\n<li>a</li>\n<li>b</li>\n</ul>"),
