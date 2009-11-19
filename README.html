@@ -1,6 +1,17 @@
 <h1>Release Notes</h1>
 
 
+<h2>Version 1.1.2 Production Bug Fix</h2>
+
+
+<p>A number of failures have been noticed in production of bits of markdown
+failing to convert.</p>
+
+<p>A fuzz generator has been added to produce large amounts or random characters
+with particular emphasis on characters that are 'structural' in markdown.
+50,000 random character strings found 3 or 4 new bugs which have been fixed
+in this release.</p>
+
 <h2>Version 1.1.1 Production Bug Fix</h2>
 
 
@@ -50,16 +61,16 @@ implementation.</p>
 compatibility with showdown. The current release of showdown used is V0.9</p>
 
 <p>The directory <code>/tests</code> now contains an webpage &lt;code>index.html&lt;/code> which generates
-the tests (ie the file &amp;lt;code>markdown_tests.erl</code> in <code>/src</code>).</p>
+the tests (ie the file &amp;lt;code>markdown_tests.erl&amp;lt;/code> in &amp;amp;lt;code>/src&amp;amp;lt;/code>).</p>
 
-<p><code>index.html</code> loads a javascript file &lt;code>generate_tests.js</code> which holds a list of 
+<p><code>index.html</code> loads a javascript file &lt;code>generate_tests.js&lt;/code> which holds a list of 
 strings which it generates the tests from (ie testing if markdown produces the
 same output as showdown...)</p>
 
 <p>There are a number of places where markdown is not <em>whitespace compatible</em> with showdown - you can inspect these by looking for commented out tests in 
-<code>generate<em>tests.js</code>. There are also a number of showdown bugs or other 
+<code>generate<em>tests.js<code>. There are also a number of showdown bugs or other 
 inconsistencies which also show up as commented out tests in 
-<code>generate&lt;/em>tests.js</code>.</p>
+</code>generate</em>tests.js</code>.</p>
 
 <p>The biggest single difference is that showdown doesn't escape any html tags
 by default whereas markdown has a whitelist of blocklevel tags which it doesn't

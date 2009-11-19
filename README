@@ -1,6 +1,17 @@
 Release Notes
 =============
 
+Version 1.1.2 Production Bug Fix
+--------------------------------
+
+A number of failures have been noticed in production of bits of markdown
+failing to convert.
+
+A fuzz generator has been added to produce large amounts or random characters
+with particular emphasis on characters that are 'structural' in markdown.
+50,000 random character strings found 3 or 4 new bugs which have been fixed
+in this release.
+
 Version 1.1.1 Production Bug Fix
 --------------------------------
 

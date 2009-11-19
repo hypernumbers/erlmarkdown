@@ -1057,13 +1057,17 @@ get_inline([{{inline, close}, _}, {{ws, sp}, _}, {bra, _} | T], _R, A, img) ->
 %% this clause detects references to images/links...
 get_inline([{{inline, close}, _}, {{inline, open}, _} | T], R, A, _) ->
     Text = make_plain_str(reverse(A)),
-    {[{_, Id}], Rest} = get_id_diff(T),
-    {Url, Title} = case lists:keyfind(Id, 1, R) of
-                       false          -> {"", ""};
-                       {Id, {U, Tit}} -> {U, Tit}
-                   end,
-    Tag = {Url, Title, Text},
-    {Rest, Tag};
+    case get_id_diff(T) of
+        normal            -> {[], make_plain_str(reverse(A))};
+        {[{_, Id}], Rest} ->
+            {Url, Title} = case lists:keyfind(Id, 1, R) of
+                               false          -> {"", ""};
+                               {Id, {U, Tit}} -> {U, Tit}
+                           end,
+            Tag = {Url, Title, Text},
+            {Rest, Tag};
+        _Other -> {[], make_plain_str(reverse(A))} % random failing id's
+    end;
 %% so does this one - just delete the space and rethrow it
 get_inline([{{inline, close}, _} = C , {{ws, _}, _},
             {{inline, open}, _} = O | T], R, A, Type) ->
@@ -1142,39 +1146,46 @@ strong(List, Delim)      -> interpolate2(List, Delim, "strong", "", []).
 superstrong(List, Delim) -> interpolate3(List, Delim, "strong", "em", "", []).
 dblcode(List)            -> {T, Tag} = interpolate2(List, $`, "code", "" ,[]),
                             {T, "<pre>" ++ Tag ++ "</pre>"}.
-code(List)               -> interpolate(htmlchars(List), $`, "code", "", []).
+code(List)               -> interpolateX(htmlchars(List), $`, "code", "", []).
 
 %% pain in the arse - sometimes the closing tag should be preceded by
 %% a "\n" and sometimes not in showdown.js
 %% interpolate is for single delimiters...
-interpolate([], Delim, _Tag, _X, Acc) ->
+interpolateX([], Delim, _Tag, _X, Acc) ->
     {[], [Delim] ++ reverse(Acc)};
+interpolateX([Delim | T], Delim, Tag, X, Acc) ->
+    {T,  "<" ++ Tag ++ ">" ++ reverse(Acc) ++ X ++
+     "</" ++ Tag ++ ">"};
+interpolateX([H | T], Delim, Tag, X, Acc) ->
+    interpolateX(T, Delim, Tag, X, [H | Acc]).
+
+interpolate([], Delim, _Tag, _X, Acc) ->
+    {[], [Delim] ++ htmlchars(reverse(Acc))};
 interpolate([Delim | T], Delim, Tag, X, Acc) ->
-    {T,  "<" ++ Tag ++ ">" ++ reverse(Acc) ++ X ++ "</" ++ Tag ++ ">"};
+    {T,  "<" ++ Tag ++ ">" ++ htmlchars(reverse(Acc)) ++ X ++
+     "</" ++ Tag ++ ">"};
 interpolate([H | T], Delim, Tag, X, Acc) ->
     interpolate(T, Delim, Tag, X, [H | Acc]).
 
 %% interpolate two is for double delimiters...
 interpolate2([], Delim, _Tag,  _X, Acc) ->
-    {[], [Delim] ++ [Delim] ++ reverse(Acc)};
+    {[], [Delim] ++ [Delim] ++ htmlchars(reverse(Acc))};
 interpolate2([Delim, Delim | T], Delim, Tag, X, Acc) ->
-    {T,  "<" ++ Tag ++ ">" ++ reverse(Acc) ++ X ++ "</" ++ Tag ++ ">"};
+    {T,  "<" ++ Tag ++ ">" ++ htmlchars(reverse(Acc)) ++ X ++
+     "</" ++ Tag ++ ">"};
 interpolate2([H | T], Delim, Tag, X, Acc) ->
     interpolate2(T, Delim, Tag, X, [H | Acc]).
 
 %% interpolate three is for double delimiters...
-interpolate3([], D, _Tag1, Tag2, _X, Acc)           -> {[], "<" ++ Tag2 ++ ">"
-                                                        ++ [D]
-                                                        ++ "</" ++ Tag2 ++ ">"
-                                                        ++ reverse(Acc)};
-interpolate3([D, D, D | T], D, Tag1, Tag2, _X, Acc) -> {T,  "<" ++ Tag1 ++ ">"
-                                                        ++  "<" ++ Tag2 ++ ">"
-                                                        ++ reverse(Acc)
-                                                        ++ "</" ++ Tag2 ++ ">"
-                                                        ++ "</" ++ Tag1 ++ ">"};
+interpolate3([], D, _Tag1, Tag2, _X, Acc)           ->
+    {[], "<" ++ Tag2 ++ ">" ++ [D] ++ "</" ++ Tag2 ++ ">"
+     ++ htmlchars(reverse(Acc))};
+interpolate3([D, D, D | T], D, Tag1, Tag2, _X, Acc) ->
+    {T,  "<" ++ Tag1 ++ ">" ++  "<" ++ Tag2 ++ ">"
+     ++ htmlchars(reverse(Acc)) ++ "</" ++ Tag2 ++ ">"
+     ++ "</" ++ Tag1 ++ ">"};
 interpolate3([H | T], D, Tag1, Tag2, X, Acc) ->
     interpolate3(T, D, Tag1, Tag2, X, [H | Acc]).
-
 
 %%%-------------------------------------------------------------------
 %%%
