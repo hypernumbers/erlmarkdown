@@ -1,6 +1,17 @@
 Release Notes
 =============
 
+Version 1.1.3 Production Bug Fix
+--------------------------------
+
+Under certain circumstances non-breaking spaces (ascii 160) could wedge
+the server.
+
+fuzz.erl rejigged to make for better diagnostics and run with 1,000,000 random
+characters against markdown.
+
+***CAVEAT***: having serious doubts as to how erlmarkdown will handle unicode
+
 Version 1.1.2 Production Bug Fix
 --------------------------------
 

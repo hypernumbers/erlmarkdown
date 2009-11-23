@@ -10,7 +10,7 @@
 
 -module(fuzz).
 
--export([fuzzit/0,
+-export([fuzzit/1,
          get_string/0]).
 
 -define(SPACE, 32).
@@ -19,14 +19,19 @@
 -define(CR, 13).
 -define(NBSP, 160).
 
--define(LENGTH, 10000).
+-define(LENGTH, 100).
 
-%% these two heads capture opening and closing tags
+fuzzit(0) -> ok;
+fuzzit(N) -> run_fuzzit(),
+             io:format("Running fuzzit for ~p~n", [N]),
+             fuzzit(N - 1).
 
-fuzzit() ->
+run_fuzzit() ->
     String = get_string(),
+    io:format("String is ~p~n", [String]),
     Markdown = markdown:conv(String),
-    _Json = (mochijson:encoder([{input_encoding, utf8}]))(Markdown).
+    io:format("Markdown is ~p~n", [Markdown]),
+    (mochijson:encoder([{input_encoding, utf8}]))(Markdown).
 
 get_string() -> get_string1(?LENGTH, []).
 

@@ -41,14 +41,14 @@
 %%%   - horizontal rules
 %%% the parser then does its magic interpolating the references as appropriate
 conv(String) -> Lex = lex(String),
-                % io:format("Lex is ~p~n", [Lex]),
+                io:format("Lex is ~p~n", [Lex]),
                 UntypedLines = make_lines(Lex),
-                % io:format("UntypedLines are ~p~n", [UntypedLines]),
+                io:format("UntypedLines are ~p~n", [UntypedLines]),
                 {TypedLines, Refs} = type_lines(UntypedLines),
-                % io:format("TypedLines are ~p~nRefs is ~p~n",
-                %          [TypedLines, Refs]),
+                io:format("TypedLines are ~p~nRefs is ~p~n",
+                         [TypedLines, Refs]),
                 parse(TypedLines, Refs).
-
+                
 conv_file(FileIn, FileOut) ->
     case file:open(FileIn, [read]) of
         {ok, Device} -> Input = get_all_lines(Device,[]),
@@ -83,7 +83,7 @@ write(File, Text) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% SPECIAL HYPERNUMBERS PARSE - dont markdown a single normal line
-%% parse([{normal, P} | []], []) -> make_str(P, []);
+% parse([{normal, P} | []], []) -> make_str(P, []);
 %% COMMENTED OUT FOR GITHUB RELEASE
 parse(TypedLines, Refs) ->
     string:strip(p1(TypedLines, Refs, 0, []), both, $\n).
@@ -732,7 +732,8 @@ gt(String, Len) ->
     ExpString = re:replace(String, "\t", "    ", [{return, list}]),
     ExpStringLen = length(ExpString),
     if
-        ExpStringLen >= Len -> WS = string:substr(ExpString, Len + 1, ExpStringLen),
+        ExpStringLen >= Len -> WS = string:substr(ExpString, Len + 1,
+                                                  ExpStringLen),
                                {true, {{ws, sp}, WS}};
         ExpStringLen <  Len -> false
     end.
@@ -745,6 +746,12 @@ make_tag_str({{{tag, Type}, Tag}, _}) ->
         self_closing -> "<"  ++ Tag ++ " />;"
     end.
 
+esc_tag(String) -> esc_t1(String, []).
+
+esc_t1([], Acc)        -> lists:reverse(Acc);
+esc_t1([160 | T], Acc) -> esc_t1(T, [32 | Acc]); % non-breaking space to space
+esc_t1([H | T], Acc)   -> esc_t1(T, [H | Acc]).
+                  
 %% if it is a list we need to discard the initial white space...
 make_list_str([{{ws, _}, _} | T] = List) ->
     case is_double_indent(List) of
@@ -901,6 +908,7 @@ l1([$] | T], A1, A2)       -> l1(T, [], [{{inline, close}, "]"}, l2(A1) | A2]);
 %% that 'character' doesn't exist so isn't in the lexer but appears in the parser
 l1([?SPACE | T], A1, A2)   -> l1(T, [], [{{ws, sp}, " "}, l2(A1) | A2]);
 l1([?TAB | T], A1, A2)     -> l1(T, [], [{{ws, tab}, "\t"}, l2(A1) | A2]);
+l1([?NBSP | T], A1, A2)    -> l1(T, [], [{{ws, sp}, "&nbsp"}, l2(A1) | A2]);
 l1([?CR, ?LF | T], A1, A2) -> l1(T, [], [{{lf, crlf}, [?CR , ?LF]}, l2(A1) | A2]);
 l1([?LF | T], A1, A2)      -> l1(T, [], [{{lf, lf}, [?LF]}, l2(A1) | A2]);
 %% this final clause accumulates line fragments
@@ -1028,10 +1036,11 @@ m_str1([{url, Url} | T], R, A) ->
 m_str1([{tags, _} = Tag | T], R, A) ->
     m_str1(T, R, [Tag | A]);
 m_str1([{{{tag, Type}, Tag}, _} | T], R, A) ->
+    Tag2 = esc_tag(Tag),
     TagStr = case Type of
-                 open         -> {tags, "&lt;"  ++ Tag ++ "&gt;"};
-                 close        -> {tags, "&lt;/" ++ Tag ++ "&gt;"};
-                 self_closing -> {tags, "&lt;"  ++ Tag ++ " /&gt;"}
+                 open         -> {tags, "&lt;"  ++ Tag2 ++ "&gt;"};
+                 close        -> {tags, "&lt;/" ++ Tag2 ++ "&gt;"};
+                 self_closing -> {tags, "&lt;"  ++ Tag2 ++ " /&gt;"}
              end,
     m_str1(T, R, [TagStr | A]);
 m_str1([{_, Orig} | T], R, A)  ->
