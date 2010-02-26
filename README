@@ -1,6 +1,14 @@
 Release Notes
 =============
 
+Version 1.1.5 (Interim)
+-----------------------
+
+Integration of additional tests from markdownsharp:
+http://code.google.com/p/markdownsharp/source/browse/trunk/MarkdownSharpTests/#MarkdownSharpTests/testfiles%3Fstate%3Dclosed
+
+17 currently failing which is why this is an interim release
+
 Version 1.1.4 Production Bug Fix
 --------------------------------
 

@@ -1,0 +1,27 @@
+#!/usr/local/lib/erlang/erts-5.7.4/bin/escript
+%% -*- erlang -*-
+
+-mode(compile).
+
+main([]) ->
+    CWD = filename:absname(""),
+    Root = CWD ++ "/../tests/markdownsharp/",
+    Dirs = ["mdtest-1.1", "mstest-0.1", "php-markdown"],
+    Files = lists:merge(make_file_lists(Dirs, Root, [])),
+    Tests = read_files(Files, []),
+    File = CWD ++ "/../tests/markdownsharp.tests",
+    {ok, FileHandle} = file:open(File, [append]),
+    write_tests(FileHandle, Tests).
+
+write_tests(FileHandle, [])      -> file:close(FileHandle);
+write_tests(FileHandle, [H | T]) -> io:fwrite(FileHandle, "~p,~n", [H]),
+                                    write_tests(FileHandle, T).
+        
+make_file_lists(Dirs, Root, []) ->
+    [filelib:wildcard(Root ++ X ++ "/*") || X <- Dirs].
+
+read_files([], Acc) -> Acc;
+read_files([H | T], Acc) ->
+    {ok, Bin} = file:read_file(H),
+    io:format("H is ~p~nTest is ~p~n", [H, binary_to_list(Bin)]),
+    read_files(T, [binary_to_list(Bin) | Acc]).
