@@ -1225,11 +1225,4 @@ make_img_tag(Url, Acc, Title) ->
 %%%
 %%%-------------------------------------------------------------------
 
-%% we use a (very slightly) patched version which does no mark down if the input
-%% consists of a single line of text, so all the tests are written to be at
-%% least two lines just to stop all the unit tests breaking when we patch
-%% the code for our implementation
-%% Gordon Guthrie
-%% (our patch is the first commented out clause of the function parse/1)
-
 -include("markdown_tests.erl").
