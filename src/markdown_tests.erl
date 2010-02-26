@@ -274,16 +274,8 @@ unit_test_() ->
      ?_assert(conv("\t\n") == ""),
      ?_assert(conv("\n\n") == ""),
      ?_assert(conv("\n") == ""),
-
-     ?_assertEqual(
-        "<p>some stuff <code>yaycode</code> more stuff <code>more code!"
-        "</code></p>",
-        conv("some stuff `yaycode` more stuff `more code!`")),
-     
-     ?_assertEqual(
-        "<ul>\n<li>should be <em>italic</em></li>\n<li>should be "
-        "<strong>bold</strong></li>\n<li>should be <strong><em>bold italic"
-        "</em></strong></li>\n</ul>",
-        conv("\n - should be *italic*\n  - should be **bold**\n  - "
-             "should be ***bold italic***"))
+     ?_assert(conv("\n 1.   should be *italic*\n 2.  should be **bold**\n 3.  should be ***bold italic***") == "<ol>\n<li>should be <em>italic</em></li>\n<li>should be <strong>bold</strong></li>\n<li>should be <strong><em>bold italic</em></strong></li>\n</ol>"),
+     ?_assert(conv("\n - should be *italic*\n - should be **bold**\n - should be ***bold italic***") == "<ul>\n<li>should be <em>italic</em></li>\n<li>should be <strong>bold</strong></li>\n<li>should be <strong><em>bold italic</em></strong></li>\n</ul>"),
+     ?_assert(conv("some stuff `yaycode` more stuff `more code!`") == "<p>some stuff <code>yaycode</code> more stuff <code>more code!</code></p>"),
+     ?_assert(conv("[![Button](/img/somebutton.png)](http://example.com/some/link)") == "<p><a href=\"http://example.com/some/link\"><img src=\"/img/somebutton.png\" alt=\"Button\" title=\"\" /></a></p>")
     ].

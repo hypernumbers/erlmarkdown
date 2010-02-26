@@ -1,6 +1,19 @@
 <h1>Release Notes</h1>
 
 
+<h2>Version 1.1.4 Production Bug Fix</h2>
+
+
+<p>Fixes 4 sets of bugs:</p>
+<ul>
+<li>you can now put an image inside an href
+  ` (eg [![alt](/img/some.png)](http://example.com/dir/)`
+</li>
+<li>text in ordered and unordered lists now renders correctly
+  eg bold and italic etc
+</li>
+<li>the 'you can't have 2 code segments in a single line' bug is fixed</li>
+</ul>
 <h2>Version 1.1.3 Production Bug Fix</h2>
 
 
@@ -71,17 +84,17 @@ implementation.</p>
 <p>To that end the test suite has been repurposed to test
 compatibility with showdown. The current release of showdown used is V0.9</p>
 
-<p>The directory <code>/tests</code> now contains an webpage &lt;code>index.html&lt;/code> which generates
-the tests (ie the file &amp;lt;code>markdown_tests.erl&amp;lt;/code> in &amp;amp;lt;code>/src&amp;amp;lt;/code>).</p>
+<p>The directory <code>/tests</code> now contains an webpage <code>index.html</code> which generates
+the tests (ie the file <code>markdown_tests.erl</code> in <code>/src</code>).</p>
 
-<p><code>index.html</code> loads a javascript file &lt;code>generate_tests.js&lt;/code> which holds a list of 
+<p><code>index.html</code> loads a javascript file <code>generate_tests.js</code> which holds a list of 
 strings which it generates the tests from (ie testing if markdown produces the
 same output as showdown...)</p>
 
 <p>There are a number of places where markdown is not <em>whitespace compatible</em> with showdown - you can inspect these by looking for commented out tests in 
-<code>generate<em>tests.js<code>. There are also a number of showdown bugs or other 
+<code>generate_tests.js</code>. There are also a number of showdown bugs or other 
 inconsistencies which also show up as commented out tests in 
-</code>generate</em>tests.js</code>.</p>
+<code>generate_tests.js</code>.</p>
 
 <p>The biggest single difference is that showdown doesn't escape any html tags
 by default whereas markdown has a whitelist of blocklevel tags which it doesn't
@@ -97,7 +110,7 @@ as per the previous versions (see bottom of document)</p>
 
 <p>Various bug fixes:</p>
 <ul>
-<li>supports short inline URL references of the form 'some text [id] some more'</li>
+<li>supports short inline URL references of the form 'some text <a href="http://sub.dom.tld:1234/some/path\\t\\n" title="Title">id</a> some more'</li>
 <li>fixes bugs with lines containing markdown only like '#', '>', '=' and '-'</li>
 <li>fixes a bug where a terminating '\n\n' would mean each line came back reversed</li>
 <li>fixes various 'atx header' bugs</li>

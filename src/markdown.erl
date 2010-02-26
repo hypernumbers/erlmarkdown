@@ -17,9 +17,9 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -define(SPACE, 32).
--define(TAB, 9).
--define(LF, 10).
--define(CR, 13).
+-define(TAB,    9).
+-define(LF,    10).
+-define(CR,    13).
 -define(NBSP, 160).
 
 %%% the lexer first lexes the input
@@ -41,12 +41,12 @@
 %%%   - horizontal rules
 %%% the parser then does its magic interpolating the references as appropriate
 conv(String) -> Lex = lex(String),
-                io:format("Lex is ~p~n", [Lex]),
+                % io:format("Lex is ~p~n", [Lex]),
                 UntypedLines = make_lines(Lex),
-                io:format("UntypedLines are ~p~n", [UntypedLines]),
+                % io:format("UntypedLines are ~p~n", [UntypedLines]),
                 {TypedLines, Refs} = type_lines(UntypedLines),
-                io:format("TypedLines are ~p~nRefs is ~p~n",
-                         [TypedLines, Refs]),
+                % io:format("TypedLines are ~p~nRefs is ~p~n",
+                %         [TypedLines, Refs]),
                 parse(TypedLines, Refs).
                 
 conv_file(FileIn, FileOut) ->
@@ -82,9 +82,6 @@ write(File, Text) ->
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% SPECIAL HYPERNUMBERS PARSE - dont markdown a single normal line
-% parse([{normal, P} | []], []) -> make_str(P, []);
-%% COMMENTED OUT FOR GITHUB RELEASE
 parse(TypedLines, Refs) ->
     string:strip(p1(TypedLines, Refs, 0, []), both, $\n).
 
@@ -256,9 +253,13 @@ parse_list(_Type, [], _R, _I, A, _) ->
 parse_list(Type, [{{Type, P}, _} | T], R, I, A, Wrap) ->
     {Rest, NewP, NewWrap} = grab(T, R, [], Wrap),
     Li = case NewWrap of
-             false -> make_esc_str(P, R) ++ NewP ++ pad(I);
-             true  -> "<p>" ++ string:strip(make_esc_str(P, R), right, ?LF)
-                          ++ "</p>" ++ NewP ++ pad(I) 
+             false -> Ret = parse([{normal, P}], R),
+                      % need to strip off the extra <p></p>'s
+                      Ret2 = string:left(Ret, length(Ret) - 4),
+                      Ret3 = string:right(Ret2, length(Ret2) -3),
+                      Ret3 ++ "\n" ++ NewP ++ pad(I);
+             true  -> string:strip(parse([{normal, P}], R), right, ?LF)
+                          ++ NewP ++ pad(I) 
          end,
     NewWrap2 = case T of
                    []         -> false; % doesnt matter
@@ -433,7 +434,8 @@ t_l1([[{{inline, open}, _} | T1] = H | T2], A1, A2) ->
 t_l1([[{{md, eq}, _} | _T] = H | T], A1, A2) ->
     t_l1(T, A1, [type_setext_h1(H) | A2]);
 %% NOTE 1: generates a ul as the default not a normal line
-%% NOTE 2: depending on the context this might generate an <h2> header or an <hr />
+%% NOTE 2: depending on the context this might generate an <h2> header
+%%         or an <hr />
 %% NOTE 3: space - is typed to a bullet down in <ul> land...
 t_l1([[{{md, dash}, _} | _T] = H | T], A1, A2) ->
     t_l1(T, A1, [type_setext_h2(H) | A2]);
@@ -457,16 +459,19 @@ t_l1([[{{md, gt}, _} | _T1] = H | T], A1, A2) ->
 %% NOTE 1: the dashed version is generated in type_setext_h2
 %% NOTE 2: the asterix version also might generate a horizontal rule
 %%         which is why it jumps to type_star2 <-- note the 2!!
-t_l1([[{{ws, _}, _}, {{md, star}, _} = ST1, {{ws, _}, _} = WS1 | T1] = H | T], A1, A2) ->
+t_l1([[{{ws, _}, _}, {{md, star}, _} = ST1,
+       {{ws, _}, _} = WS1 | T1] = H | T], A1, A2) ->
     t_l1(T, A1, [{type_star2([ST1, WS1 | T1]), H} | A2]);
 t_l1([[{{md, star}, _}, {{ws, _}, _} | _T1] = H | T], A1, A2) ->
     t_l1(T, A1, [{type_star2(H), H} | A2]);
-t_l1([[{{ws, _}, _}, {{md, plus}, _}, {{ws, _}, _} = W | T1] = H | T], A1, A2) ->
+t_l1([[{{ws, _}, _}, {{md, plus}, _},
+       {{ws, _}, _} = W | T1] = H | T], A1, A2) ->
     t_l1(T, A1, [{{ul, make_list_str([W | T1])}, H} | A2]);
 t_l1([[{{md, plus}, _}, {{ws, _}, _} = W | T1] = H | T], A1, A2) ->
     t_l1(T, A1, [{{ul, make_list_str([W | T1])}, H} | A2]);
 %% UL based on dashes
-t_l1([[{{ws, _}, _}, {{md, dash}, _}, {{ws, _}, _} = W | T1] = H | T], A1, A2) ->
+t_l1([[{{ws, _}, _}, {{md, dash}, _},
+       {{ws, _}, _} = W | T1] = H | T], A1, A2) ->
     t_l1(T, A1, [{{ul, make_list_str([W | T1])}, H} | A2]);
 
 %% types ordered lists...
@@ -549,36 +554,43 @@ is_block_tag("ol")         -> true;
 is_block_tag("p")          -> true;
 is_block_tag("pre")        -> true;
 is_block_tag("table")      -> true;
+is_block_tag("thead")      -> true;
+is_block_tag("tbody")      -> true;
+is_block_tag("tr")         -> true;
+is_block_tag("td")         -> true;
 is_block_tag("ul")         -> true;
 is_block_tag(_Other)       -> false.
 
-type_underscore(List) -> case type_underscore1(trim_right(List)) of
-                             hr    -> {hr, List};
-                             maybe -> {type_underscore2(List), List}
-                         end.
+type_underscore(List) ->
+    case type_underscore1(trim_right(List)) of
+        hr    -> {hr, List};
+        maybe -> {type_underscore2(List), List}
+    end.
 
 type_underscore1([])                          -> hr;
 type_underscore1([{{md, underscore}, _} | T]) -> type_underscore1(T);
 type_underscore1(_List)                       -> maybe.
 
-type_underscore2(List) -> case trim_right(List) of % be permissive of trailing spaces
-                              [{{md, underscore}, _}, {{ws, _}, _},
-                               {{md, underscore}, _}, {{ws, _}, _},
-                               {{md, underscore}, _}]               -> hr;
-                              _Other                                -> normal
-                          end.
+type_underscore2(List) ->
+    case trim_right(List) of % be permissive of trailing spaces
+        [{{md, underscore}, _}, {{ws, _}, _},
+         {{md, underscore}, _}, {{ws, _}, _},
+         {{md, underscore}, _}]               -> hr;
+        _Other                                -> normal
+    end.
 
-type_star(List) -> Trim = trim_right(List),
-                   case type_star1(Trim) of % be permssive of trailing spaces
-                       hr    -> {hr, trim_right(Trim)};
-                       maybe -> Type = type_star2(List),
-                                % if it is a normal line we prepend it with a special
-                                % non-space filling white space character
-                                case Type of
-                                    normal -> {normal, [{{ws, none}, none} | List]};
-                                    _      -> {Type, List}
-                                end
-                   end.
+type_star(List) ->
+    Trim = trim_right(List),
+    case type_star1(Trim) of % be permssive of trailing spaces
+        hr    -> {hr, trim_right(Trim)};
+        maybe -> Type = type_star2(List),
+                 % if it is a normal line we prepend it with a special
+                 % non-space filling white space character
+                 case Type of
+                     normal -> {normal, [{{ws, none}, none} | List]};
+                     _      -> {Type, List}
+                 end
+    end.
 
 type_star1([])                    -> hr;
 type_star1([{{md, star}, _} | T]) -> type_star1(T);
@@ -995,7 +1007,7 @@ m_plain([{_, Str} | T], Acc) -> m_plain(T, [Str | Acc]).
 make_esc_str(List, Refs) -> m_esc(List, Refs, []).
 
 m_esc([], _R, A)               -> flatten(reverse(A));
-m_esc([{tags, Tag} | T], R, A) -> m_esc(T, R, [Tag | A]);
+m_esc([{tags, Tag} | T], R, A) -> m_esc(T, R, [{tags, Tag} | A]);
 m_esc([H | T], R, A)           -> m_esc(T, R, [make_str([H], R) | A]).
 
     
@@ -1006,10 +1018,7 @@ m_str1([], _R, A) ->
     htmlchars(Flat);
 m_str1([{{punc, bang}, B}, {{inline, open}, O} | T], R, A) ->
     case get_inline(T, R, [], img) of
-        {Rest, {Url, Title, Acc}} -> Tag = [{tags, "<img src=\"" ++ Url ++ "\""
-                                            ++ " alt=\"" ++ Acc ++ "\""
-                                            ++ " title=\"" ++ Title ++ "\""
-                                            ++ " />"}],
+        {Rest, {Url, Title, Acc}} -> Tag = [make_img_tag(Url, Acc, Title)],
                                      m_str1(Rest, R, [Tag | A]);
         {Rest, Tag}               -> m_str1(Rest, R, [Tag, O, B | A])
     end;
@@ -1018,15 +1027,17 @@ m_str1([{{punc, bslash}, _}, {{inline, open}, O} | T], R, A) ->
     m_str1(T, R, [O | A]);
 m_str1([{{inline, open}, O} | T], R, A) ->
     case get_inline(T, R, [], url) of
-        {Rest, {Url, Title, Acc}} -> Tit = case Title of
-                                               [] -> [];
-                                               _  -> " title=\"" ++ Title ++ "\""
-                                           end,
-                                     Tag = [{tags, "<a href=\"" ++ Url ++ "\""
-                                            ++ Tit ++ ">"}, Acc,
-                                            {tags, "</a>"} | []],
-                                     m_str1(Rest, R, [Tag | A]);
-        {Rest, Tag}               -> m_str1(Rest, R, [Tag, O | A])
+        {Rest, {Url, Title, Acc}} ->
+            Tit = case Title of
+                      [] -> [];
+                      _  -> " title=\"" ++ Title ++ "\""
+                  end,
+            Tag = [{tags, "<a href=\"" ++ Url ++ "\""
+                    ++ Tit ++ ">"}, Acc,
+                   {tags, "</a>"} | []],
+            m_str1(Rest, R, [Tag | A]);
+        {Rest, Tag} ->
+            m_str1(Rest, R, [Tag, O | A])
     end;
 m_str1([{email, Addie} | T], R, A) ->
     m_str1(T, R, [{tags, "\" />"}, Addie, {tags, "<a href=\"mailto:"}| A]);
@@ -1049,6 +1060,12 @@ m_str1([{_, Orig} | T], R, A)  ->
 % if the inline doesn't terminate its not an inline...
 get_inline([], _R, A, _) ->
     {[], make_plain_str(reverse(A))};
+% a url can contain an image inline
+get_inline([{{punc, bang}, _B}, {{inline, open}, _O} | T], R, A, url) ->
+    {Rest, {Url, Title, Acc}} = get_inline(T, R, A, img),
+    Tag = make_img_tag(Url, Acc, Title),
+    % We double tag the tag so that it can get through the flatteners..
+    get_inline(Rest, R, [{tags, Tag} | A], url);
 get_inline([{{inline, close}, _}, {bra, _} | T], _R, A, _) ->
     {Rest, Url, Title} = parse_inline(T),
     Tag = {string:strip(make_plain_str(Url)),
@@ -1155,15 +1172,15 @@ strong(List, Delim)      -> interpolate2(List, Delim, "strong", "", []).
 superstrong(List, Delim) -> interpolate3(List, Delim, "strong", "em", "", []).
 dblcode(List)            -> {T, Tag} = interpolate2(List, $`, "code", "" ,[]),
                             {T, "<pre>" ++ Tag ++ "</pre>"}.
-code(List)               -> interpolateX(htmlchars(List), $`, "code", "", []).
+code(List)               -> interpolateX(List, $`, "code", "", []).
 
 %% pain in the arse - sometimes the closing tag should be preceded by
 %% a "\n" and sometimes not in showdown.js
 %% interpolate is for single delimiters...
 interpolateX([], Delim, _Tag, _X, Acc) ->
-    {[], [Delim] ++ reverse(Acc)};
+    {[], [Delim] ++ htmlchars(reverse(Acc))};
 interpolateX([Delim | T], Delim, Tag, X, Acc) ->
-    {T,  "<" ++ Tag ++ ">" ++ reverse(Acc) ++ X ++
+    {T,  "<" ++ Tag ++ ">" ++ htmlchars(reverse(Acc)) ++ X ++
      "</" ++ Tag ++ ">"};
 interpolateX([H | T], Delim, Tag, X, Acc) ->
     interpolateX(T, Delim, Tag, X, [H | Acc]).
@@ -1195,6 +1212,12 @@ interpolate3([D, D, D | T], D, Tag1, Tag2, _X, Acc) ->
      ++ "</" ++ Tag1 ++ ">"};
 interpolate3([H | T], D, Tag1, Tag2, X, Acc) ->
     interpolate3(T, D, Tag1, Tag2, X, [H | Acc]).
+
+make_img_tag(Url, Acc, Title) ->
+    {tags, "<img src=\"" ++ Url ++ "\""
+      ++ " alt=\"" ++ Acc ++ "\""
+      ++ " title=\"" ++ Title ++ "\""
+      ++ " />"}.
 
 %%%-------------------------------------------------------------------
 %%%

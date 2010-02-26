@@ -1,4 +1,8 @@
 var tests = [
+        "[![Button](/img/somebutton.png)](http://example.com/some/link)",
+        "some stuff `yaycode` more stuff `more code!`",
+        "\n - should be *italic*\n - should be **bold**\n - should be ***bold italic***",
+        "\n 1.   should be *italic*\n 2.  should be **bold**\n 3.  should be ***bold italic***",
         "\n",
         "\n\n",
         "\t\n",
