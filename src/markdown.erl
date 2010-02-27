@@ -22,7 +22,7 @@
 -define(LF,    10).
 -define(CR,    13).
 -define(NBSP, 160).
-
+    
 %%% the lexer first lexes the input
 %%% make_lines does 2 passes:
 %%% * it chops the lexed strings into lines which it represents as a
@@ -663,6 +663,8 @@ type_atx(List) ->
                         {h5, A};
                     ((Sz == 6) andalso (R == [{{lf, lf}, "\n"}])) ->
                         {h5, A};
+                    ((Sz == 6) andalso (R == [{{lf, cr}, "\n"}])) ->
+                        {h5, A};
                     ((Sz == 6) andalso (R == [{{lf, crlf}, "\r\n"}])) ->
                         {h5, A};
                     ((Sz == 6) andalso (R =/= [])) ->
@@ -784,11 +786,11 @@ make_list_str([{{ws, _}, _} | T] = List) ->
 snip_ref(List) ->
     case get_id(List) of
         {[{_, Id}], Rest} -> {_Rest2, Ref, Title} = parse_inline(Rest),
-                                  Ref2 = trim(Ref),
-                                  Rs = make_plain_str(Ref2),
-                                  Ts = make_plain_str(Title),
-                                  {inlineref, {Id, {Rs, Ts}}};
-        normal                 -> normal
+                             Ref2 = trim(Ref),
+                             Rs = htmlencode(make_plain_str(Ref2)),
+                             Ts = make_plain_str(Title),
+                             {inlineref, {Id, {Rs, Ts}}};
+        normal            -> normal
     end.
 
 get_id(List) -> g_id1(List, []).
@@ -930,6 +932,7 @@ l1([?TAB | T], A1, A2)     -> l1(T, [], [{{ws, tab}, "\t"}, l2(A1) | A2]);
 l1([?NBSP | T], A1, A2)    -> l1(T, [], [{{ws, sp}, "&nbsp"}, l2(A1) | A2]);
 l1([?CR, ?LF | T], A1, A2) -> l1(T, [], [{{lf, crlf}, [?CR , ?LF]}, l2(A1) | A2]);
 l1([?LF | T], A1, A2)      -> l1(T, [], [{{lf, lf}, [?LF]}, l2(A1) | A2]);
+l1([?CR | T], A1, A2)      -> l1(T, [], [{{lf, cr}, [?CR]}, l2(A1) | A2]);
 %% this final clause accumulates line fragments
 l1([H|T], A1, A2)          -> l1(T, [H |A1] , A2).
 
@@ -1123,14 +1126,28 @@ g_id_diff1([], _Acc)                         -> normal;
 g_id_diff1([{{inline, close}, _}| T], Acc)   -> {reverse(Acc), T};
 g_id_diff1([H | T], Acc)                     -> g_id_diff1(T, [H | Acc]).
 
+%% convert ascii into html characters
+htmlencode(List) ->
+    htmlencode(List, []).
+ 
+htmlencode([], Acc) ->
+    lists:flatten(lists:reverse(Acc));
+ 
+htmlencode([$&   | Rest], Acc) -> htmlencode(Rest, ["&amp;" | Acc]);
+htmlencode([$<   | Rest], Acc) -> htmlencode(Rest, ["&lt;" | Acc]);
+htmlencode([$>   | Rest], Acc) -> htmlencode(Rest, ["&gt;" | Acc]);
+htmlencode([160  | Rest], Acc) -> htmlencode(Rest, ["&nbsp;" | Acc]);
+htmlencode([Else | Rest], Acc) -> htmlencode(Rest, [Else | Acc]).
+
 htmlchars(List) -> htmlchars1(List, []).
  
 htmlchars1([], Acc) -> flatten(reverse(Acc));
 %% tags are just wheeched out unescaped
 htmlchars1([{tags, Tag} | T], Acc)   -> htmlchars1(T, [Tag | Acc]);
 %% line ends are pushed to a space..
+htmlchars1([?CR, ?LF | T], Acc)      -> htmlchars1(T, ["\r\n" | Acc]);
 htmlchars1([?LF | T], Acc)           -> htmlchars1(T, ["\n" | Acc]);
-htmlchars1([?CR, ?LF | T], Acc)      -> htmlchars1(T, ["\n" | Acc]);
+htmlchars1([?CR | T], Acc)           -> htmlchars1(T, ["\r" | Acc]);
 %% emphasis is a bit strange - must be preceeded by or followed by
 %% white space to work and can also be escaped
 %% there is a non-space filling white space represented by the atom 'none'
