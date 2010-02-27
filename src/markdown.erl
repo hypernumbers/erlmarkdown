@@ -10,6 +10,7 @@
 -module(markdown).
 
 -export([conv/1,
+         conv_utf8/1,
          conv_file/2]).
 
 -import(lists, [flatten/1, reverse/1]).
@@ -48,6 +49,12 @@ conv(String) -> Lex = lex(String),
                 % io:format("TypedLines are ~p~nRefs is ~p~n",
                 %         [TypedLines, Refs]),
                 parse(TypedLines, Refs).
+
+-spec conv_utf8(list()) -> list().
+conv_utf8(Utf8) ->
+    Str = xmerl_ucs:from_utf8(Utf8),
+    Res = conv(Str),
+    xmerl_ucs:to_utf8(Res).    
                 
 conv_file(FileIn, FileOut) ->
     case file:open(FileIn, [read]) of
@@ -760,9 +767,9 @@ make_tag_str({{{tag, Type}, Tag}, _}) ->
 
 esc_tag(String) -> esc_t1(String, []).
 
-esc_t1([], Acc)        -> lists:reverse(Acc);
-esc_t1([160 | T], Acc) -> esc_t1(T, [32 | Acc]); % non-breaking space to space
-esc_t1([H | T], Acc)   -> esc_t1(T, [H | Acc]).
+esc_t1([], Acc)          -> lists:reverse(Acc);
+esc_t1([?NBSP | T], Acc) -> esc_t1(T, [?SPACE | Acc]); % non-breaking space to space
+esc_t1([H | T], Acc)     -> esc_t1(T, [H | Acc]).
                   
 %% if it is a list we need to discard the initial white space...
 make_list_str([{{ws, _}, _} | T] = List) ->
