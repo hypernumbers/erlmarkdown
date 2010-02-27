@@ -1,6 +1,13 @@
 Release Notes
 =============
 
+Version 1.1.6 UTF8 Support
+--------------------------
+
+Can now specify a UTF 8 entry point - this addresses the non-breaking space/ascii 160 problem of Version 1.1.3
+
+Failing tests of 1.1.5 not addressed in this release
+
 Version 1.1.5 (Interim)
 -----------------------
 
