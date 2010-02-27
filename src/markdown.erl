@@ -13,6 +13,8 @@
          conv_utf8/1,
          conv_file/2]).
 
+-export([debug/0]).
+
 -import(lists, [flatten/1, reverse/1]).
 
 -include_lib("eunit/include/eunit.hrl").
@@ -22,6 +24,12 @@
 -define(LF,    10).
 -define(CR,    13).
 -define(NBSP, 160).
+
+debug() ->
+    Input = "Paragraph and no space:\r* ciao\r\rParagraph and 1 space:\r * ciao\r\rParagraph and 3 spaces:\r  * ciao\r\rParagraph and 4 spaces:\r   * ciao\r\rParagraph before header:\r#Header\r\rParagraph before blockquote:\r>Some quote.\r",
+    ShouldBe =  "<p>Paragraph and no space:\n* ciao</p>\n\n<p>Paragraph and 1 space:\n * ciao</p>\n\n<p>Paragraph and 3 spaces:\n  * ciao</p>\n\n<p>Paragraph and 4 spaces:\n   * ciao</p>\n\n<p>Paragraph before header:</p>\n\n<h1>Header</h1>\n\n<p>Paragraph before blockquote:</p>\n\n<blockquote>\n  <p>Some quote.</p>\n</blockquote>",
+    Ret = conv(Input),
+    io:format("Input is ~p~nRet is ~n~p~nShouldBe is ~n~p~n", [Input, Ret, ShouldBe]).
     
 %%% the lexer first lexes the input
 %%% make_lines does 2 passes:
