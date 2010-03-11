@@ -1,5 +1,28 @@
+DEVELOPER NOTES
+===============
+
+Erlmarkdown uses generated tests. There are 2 levels of generation:
+`./tests/index.html` uses `generate_tests.js` to take a set of input test cases
+and output an EUnit test file for Erlang.
+
+Some of the tests in `generate_tests.js` are hand written and some have been generated from the MarkdownSharp test suites.
+
+The MarkdownSharp test suites were originally  downloaded from:
+`http://code.google.com/p/markdownsharp/`
+
+They can be found in `./tests/markdowndownsharp/`
+
+The code that generates tests from them in in the escript file:
+`./priv/make_tests`
+
+
 Release Notes
 =============
+
+Version 1.1.8 Production Bug Fix
+--------------------------------
+
+Some blocktag/html errrors fixed
 
 Version 1.1.7 Production Bug Fix
 --------------------------------
