@@ -19,6 +19,11 @@ The code that generates tests from them in in the escript file:
 Release Notes
 =============
 
+Version 1.1.9 Production Bug Fix
+--------------------------------
+
+Wasn't handling special white space inserted by the ***PARSER*** (don't ask!)
+
 Version 1.1.8 Production Bug Fix
 --------------------------------
 

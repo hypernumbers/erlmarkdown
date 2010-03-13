@@ -56,6 +56,7 @@ conv(String) -> Lex = lex(String),
 conv_utf8(Utf8) ->
     Str = xmerl_ucs:from_utf8(Utf8),
     Res = conv(Str),
+    io:format("Res is ~p~n", [Res]),
     xmerl_ucs:to_utf8(Res).    
                 
 conv_file(FileIn, FileOut) ->
@@ -1030,8 +1031,9 @@ get_email_addie(String) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 make_plain_str(List) -> m_plain(List, []).
 
-m_plain([], Acc)             -> flatten(reverse(Acc));
-m_plain([{_, Str} | T], Acc) -> m_plain(T, [Str | Acc]).
+m_plain([], Acc)                       -> flatten(reverse(Acc));
+m_plain([{{ws, none}, none} | T], Acc) -> m_plain(T, [" " | Acc]);
+m_plain([{_, Str} | T], Acc)           -> m_plain(T, [Str | Acc]).
 
 make_esc_str(List, Refs) -> m_esc(List, Refs, []).
 
