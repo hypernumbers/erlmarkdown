@@ -19,10 +19,16 @@ The code that generates tests from them in in the escript file:
 Release Notes
 =============
 
+Version 1.1.11 Production Bug Fix
+---------------------------------
+
+Bug Fix for tags with a couple more shonky unfixed whitespace bugs
+
+
 Version 1.1.10 Production Bug Fix
 ---------------------------------
 
-Shonk Alert! A couple of bugs 
+Shonk Alert! A couple of whitespace bugs remain unfixed
 
 Version 1.1.9 Production Bug Fix
 --------------------------------

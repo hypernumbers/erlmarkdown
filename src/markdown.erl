@@ -49,14 +49,13 @@ conv(String) -> Lex = lex(String),
                 % io:format("UntypedLines are ~p~n", [UntypedLines]),
                 {TypedLines, Refs} = type_lines(UntypedLines),
                 % io:format("TypedLines are ~p~nRefs is ~p~n",
-                %          [TypedLines, Refs]),
+                %           [TypedLines, Refs]),
                 parse(TypedLines, Refs).
 
 -spec conv_utf8(list()) -> list().
 conv_utf8(Utf8) ->
     Str = xmerl_ucs:from_utf8(Utf8),
     Res = conv(Str),
-    io:format("Res is ~p~n", [Res]),
     xmerl_ucs:to_utf8(Res).    
                 
 conv_file(FileIn, FileOut) ->
@@ -105,11 +104,11 @@ p1([], _R, _I, Acc)    -> flatten(reverse(Acc));
 p1([{tag, Tag} | T], R, I, Acc) ->
     case T of
         []                -> p1([], R, I, 
-                                [make_tag_str(Tag) | Acc]);
+                                ["</p>", make_tag_str(Tag, R), "<p>" | Acc]);
         [{blank, _} | T2] -> p1(T2, R, I, 
-                                [make_tag_str(Tag) | Acc]);
+                                [make_tag_str(Tag, R) | Acc]);
         _Other            -> p1(T, R, I, 
-                                [pad(I) ++ make_tag_str(Tag) | Acc])
+                                [pad(I) ++ make_tag_str(Tag, R) | Acc])
     end;
 
 p1([{blocktag, [{{{tag, open}, Type}, Tg}] = _Tag} | T], R, I, Acc) ->
@@ -784,7 +783,13 @@ gt(String, Len) ->
     end.
 
 %% make a tag into a string
-make_tag_str({{{tag, _Type}, _Tag}, B}) -> B.
+make_tag_str(L, R) -> make_tag1(L, R, []).
+
+make_tag1([], _R, Acc) -> lists:reverse(Acc);
+make_tag1([{{{tag, _Type}, _Tag}, B} | T], R, Acc) ->
+    make_tag1(T, R, [B | Acc]);
+make_tag1([H | T], R, Acc) ->
+    make_tag1(T, R, [make_str([H], R) | Acc]).
 
 esc_tag(String) -> esc_t1(String, []).
 
