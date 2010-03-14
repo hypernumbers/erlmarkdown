@@ -365,11 +365,12 @@ var tests = [
     "\n 1.   should be *italic*\n 2.  should be **bold**\n 3.  should be ***bold italic***",
     "[login](_underscore)",
     "![login](_underscore)",
-    "<h3 id='test'>Lets let html through</h3>",
+    "<h3 id='test'>\nLets let html through\n</h3>",
     "&copy;",
-    "<h3>Lets let html through</h3>",
+    "<h3>\nLets let html through\n</h3>",
     "<form action=\"https://checkout.google.com/api/checkout/v2/\ncheckoutForm/Merchant/960226209420618\" id=\"BB_BuyButtonForm\"\nmethod=\"post\" name=\"BB_BuyButtonForm\" target=\"_top\">\n<input name=\"item_name_1\" type=\"hidden\" value=\"Premium\nHypernumbers Account\"/><input name=\"item_description_1\" \ntype=\"hidden\" value=\"Premium Hypernumbers Account\"/>\n<input name=\"item_quantity_1\" type=\"hidden\" value=\"1\"/>\n<input name=\"item_price_1\" type=\"hidden\" value=\"90.0\"/>\n<input name=\"item_currency_1\" type=\"hidden\" value=\"GBP\"/>\n<input name=\"_charset_\" type=\"hidden\" value=\"utf-8\"/>\n<input alt=\"\" src=\"https://checkout.google.com/buttons/buy.gif?\nmerchant_id=960226209420618&amp;w=117&amp;h=48&amp;style=white&amp;\nvariant=text&amp;loc=en_US\" type=\"image\"/></form>\n",
-"<table>\n<tr>\n<td>\n***FAQ*** - *WTF?* Postal Chess Records is a mash-up between Postal Chess and Chess Records where two Record Selectors slug it out over the interwebs in a sonic-soundclash, duh!\n</td>\n<td>\n![Logo][1]\n</td>\n</tr>\n</table>\n  [1]: http://imgur.com/VmdEL.png"
+"<table>\n<tr>\n<td>\n***FAQ*** - *WTF?* Postal Chess Records is a mash-up between Postal Chess and Chess Records where two Record Selectors slug it out over the interwebs in a sonic-soundclash, duh!\n</td>\n<td>\n<img src=\"http://imgur.com/VmdEL.png\">\n</td>\n</tr>\n</table>",
+"<table>\n<img src=\"http://example.com\">\n</table>"
 ];
 
 var converter;
