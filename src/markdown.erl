@@ -49,7 +49,7 @@ conv(String) -> Lex = lex(String),
                 % io:format("UntypedLines are ~p~n", [UntypedLines]),
                 {TypedLines, Refs} = type_lines(UntypedLines),
                 % io:format("TypedLines are ~p~nRefs is ~p~n",
-                %           [TypedLines, Refs]),
+                %          [TypedLines, Refs]),
                 parse(TypedLines, Refs).
 
 -spec conv_utf8(list()) -> list().
@@ -982,6 +982,9 @@ openingdiv1([$/,$>| T], Acc) -> Acc2 = flatten(reverse(Acc)),
                                 [Tag | _T] = string:tokens(Acc3, " "),
                                 {{{{tag, self_closing}, Tag}, "<"
                                   ++ Acc2 ++ "/>"}, T};
+%% special for non-tags
+openingdiv1([$>| T], [])     -> {[{{punc, bra}, "<"},
+                                          {{punc, ket}, ">"}], T};
 openingdiv1([$>| T], Acc)    -> Acc2 = flatten(reverse(Acc)),
                                 Acc3 = string:to_lower(Acc2),
                                 [Tag | _T] = string:tokens(Acc3, " "),

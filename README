@@ -19,6 +19,11 @@ The code that generates tests from them in in the escript file:
 Release Notes
 =============
 
+Version 1.1.12 Production Bug Fix
+---------------------------------
+
+Bug fix for "<>"
+
 Version 1.1.11 Production Bug Fix
 ---------------------------------
 

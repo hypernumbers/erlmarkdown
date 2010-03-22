@@ -373,7 +373,12 @@ var tests = [
 "<table>\n<img src=\"http://example.com\">\n</table>",
 "<flame on>",
 "<flame on>\n</flame on>",
-"<flame on>\nblah\n</flame off>\n<bingo>\n<bingo master>"
+"<flame on>\nblah\n</flame off>\n<bingo>\n<bingo master>",
+"<>",
+"<=",
+"=<",
+">=",
+"=>"
 ];
 
 var converter;
