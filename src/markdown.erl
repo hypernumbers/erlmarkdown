@@ -9,7 +9,8 @@
 
 -module(markdown).
 
--export([conv/1,
+-export([parse/1,
+         conv/1,
          conv_utf8/1,
          conv_file/2]).
 
@@ -43,16 +44,13 @@
 %%%   - code blocks
 %%%   - horizontal rules
 %%% the parser then does its magic interpolating the references as appropriate
-conv(String) -> Lex = lex(String),
-                % io:format("Lex is ~p~n", [Lex]),
-                UntypedLines = make_lines(Lex),
-                % io:format("UntypedLines are ~p~n", [UntypedLines]),
-                {TypedLines, Refs} = type_lines(UntypedLines),
-                % io:format("TypedLines are ~p~nRefs is ~p~n",
-                %          [TypedLines, Refs]),
-                to_html(TypedLines, Refs).
+conv(String) ->
+    {TypedLines, Refs} = parse(String),
+    to_html(TypedLines, Refs).
 
-
+-spec parse(string()) -> {list(), list()}.
+parse(String) ->
+    type_lines(make_lines(lex(String))).
 
 -spec conv_utf8(list()) -> list().
 conv_utf8(Utf8) ->
