@@ -1,3 +1,13 @@
+DEPRECATED
+==========
+
+This is no longer the official source for erlmarkdown.
+
+Hypernumbers stopped using it in production a good while back, we merely kept it here for the community.
+
+Erlmarkdown has been taken over by the Erlware team and the canonical repository is now:
+https://github.com/erlware/erlmarkdown
+
 DEVELOPER NOTES
 ===============
 
@@ -71,7 +81,7 @@ Version 1.1.4 Production Bug Fix
 --------------------------------
 
 Fixes 4 sets of bugs:
-* you can now put an image inside an href 
+* you can now put an image inside an href
   ` (eg [![alt](/img/some.png)](http://example.com/dir/)`
 * text in ordered and unordered lists now renders correctly
   eg bold and italic etc
@@ -137,7 +147,7 @@ Version 1.0 Production Release
 This is a major rewrite. There is little point writing servers-side markdown
 without a client-side markdown to preview it.
 
-This markdown will now track showdown from Attack Labs as its twin 
+This markdown will now track showdown from Attack Labs as its twin
 implementation.
 
 <http://attacklab.net/showdown/>
@@ -148,13 +158,13 @@ compatibility with showdown. The current release of showdown used is V0.9
 The directory `/tests` now contains an webpage `index.html` which generates
 the tests (ie the file `markdown_tests.erl` in `/src`).
 
-`index.html` loads a javascript file `generate_tests.js` which holds a list of 
+`index.html` loads a javascript file `generate_tests.js` which holds a list of
 strings which it generates the tests from (ie testing if markdown produces the
 same output as showdown...)
 
-There are a number of places where markdown is not *whitespace compatible* with showdown - you can inspect these by looking for commented out tests in 
-`generate_tests.js`. There are also a number of showdown bugs or other 
-inconsistencies which also show up as commented out tests in 
+There are a number of places where markdown is not *whitespace compatible* with showdown - you can inspect these by looking for commented out tests in
+`generate_tests.js`. There are also a number of showdown bugs or other
+inconsistencies which also show up as commented out tests in
 `generate_tests.js`.
 
 The biggest single difference is that showdown doesn't escape any html tags
